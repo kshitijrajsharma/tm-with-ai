@@ -109,34 +109,79 @@
               id="modelSelect"
               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
             >
-              <option value="yolov8n_v1">YOLOv8n v1</option>
-              <option value="yolov8s_v1">YOLOv8s v1</option>
-              <option value="yolov8m_v1">YOLOv8m v1</option>
-              <option value="yolov8l_v1">YOLOv8l v1</option>
-              <option value="yolov8x_v1">YOLOv8x v1</option>
+              <option
+                value="https://api-prod.fair.hotosm.org/api/v1/workspace/download/ramp/baseline.tflite"
+                selected
+              >
+                Ramp
+              </option>
+              <option
+                value="https://api-prod.fair.hotosm.org/api/v1/workspace/download/yolo/yolov8s_v2-seg.onnx"
+              >
+                YOLOv8
+              </option>
             </select>
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Confidence</label
+              >Confidence (%)</label
             >
             <input
               type="number"
               id="confidence"
               min="0"
-              max="1"
-              step="0.01"
-              value="0.5"
+              max="100"
+              step="1"
+              value="25"
               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
             />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Max Angle</label
+              >Tolerance</label
             >
             <input
               type="number"
-              id="maxAngle"
+              id="tolerance"
+              min="0"
+              max="1"
+              step="0.1"
+              value="0.3"
+              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Area Threshold</label
+            >
+            <input
+              type="number"
+              id="areaThreshold"
+              min="0"
+              step="1"
+              value="1"
+              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Orthogonalize</label
+            >
+            <select
+              id="orthogonalize"
+              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="false" selected>No</option>
+              <option value="true">Yes</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1"
+              >Max Angle Change (°)</label
+            >
+            <input
+              type="number"
+              id="maxAngleChange"
               min="0"
               max="45"
               value="15"
@@ -145,39 +190,14 @@
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Max Area</label
+              >Skew Tolerance (°)</label
             >
             <input
               type="number"
-              id="maxArea"
-              min="1"
-              value="200"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Min Area</label
-            >
-            <input
-              type="number"
-              id="minArea"
-              min="1"
-              value="3"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Tile Size</label
-            >
-            <input
-              type="number"
-              id="tileSize"
-              min="256"
-              max="1024"
-              step="256"
-              value="1024"
+              id="skewTolerance"
+              min="0"
+              max="45"
+              value="15"
               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
             />
           </div>
@@ -194,29 +214,16 @@
               class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
             />
           </div>
-          <div>
+          <div class="col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1"
               >Source Imagery</label
             >
-            <select
-              id="sourceImagery"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="Bing">Bing</option>
-              <option value="Mapbox">Mapbox</option>
-              <option value="EsriWorldImagery">ESRI World Imagery</option>
-              <option value="Maxar-Standard">Maxar Standard</option>
-            </select>
-          </div>
-          <div class="col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Custom Source URL</label
-            >
             <input
-              type="url"
-              id="customSource"
-              placeholder="Leave empty to use selected imagery"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+              type="text"
+              id="sourceImagery"
+              placeholder="Will be auto-populated from project details"
+              readonly
+              class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"
             />
           </div>
           <div class="col-span-2 flex justify-end space-x-2 mt-4">
@@ -321,6 +328,16 @@
           </div>
 
           <div class="mb-4">
+            <div class="text-sm font-medium mb-2">Imagery</div>
+            <div id="imageryDetails" class="bg-gray-50 p-3 rounded">
+              <div class="text-xs text-gray-600">Source</div>
+              <div id="imagerySource" class="font-medium text-sm mb-2"></div>
+              <div class="text-xs text-gray-600">License</div>
+              <div id="imageryLicense" class="text-sm"></div>
+            </div>
+          </div>
+
+          <div class="mb-4">
             <div class="text-sm font-medium mb-2">Tasks Status</div>
             <div id="taskStats" class="space-y-1"></div>
           </div>
@@ -361,580 +378,6 @@
         <div id="map" class="w-full h-full"></div>
       </div>
     </div>
-
-    <script>
-      // Environment variables with fallbacks to current URLs
-      const FAIR_API_URL = window.FAIR_API_URL || "https://fair-dev.hotosm.org";
-      const TASKING_MANAGER_API_URL =
-        window.TASKING_MANAGER_API_URL ||
-        "https://tasking-manager-production-api.hotosm.org";
-
-      let map,
-        currentProject = null,
-        accessToken = localStorage.getItem("fairAccessToken"),
-        userInfo = null;
-
-      function initMap() {
-        map = new maplibregl.Map({
-          container: "map",
-          style: {
-            version: 8,
-            sources: {
-              osm: {
-                type: "raster",
-                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-                tileSize: 256,
-                attribution: "© OpenStreetMap contributors",
-              },
-            },
-            layers: [{ id: "osm", type: "raster", source: "osm" }],
-          },
-          center: [0, 0],
-          zoom: 2,
-        });
-        map.addControl(new maplibregl.NavigationControl());
-        map.on("load", loadProjects);
-      }
-
-      async function loadProjects() {
-        try {
-          const response = await axios.get(
-            `${TASKING_MANAGER_API_URL}/api/v2/projects/`
-          );
-          const projects = response.data;
-          document.getElementById("loadingProjects").classList.add("hidden");
-          document
-            .getElementById("projectsContainer")
-            .classList.remove("hidden");
-          displayProjectsList(projects.features);
-          addProjectsToMap(projects.features);
-        } catch (error) {
-          console.error("Error loading projects:", error);
-          document.getElementById("loadingProjects").innerHTML =
-            '<p class="text-red-600">Error loading projects</p>';
-        }
-      }
-
-      function displayProjectsList(projects) {
-        const container = document.getElementById("projectsContainer");
-        container.innerHTML = "";
-        projects.slice(0, 20).forEach((project) => {
-          const projectCard = document.createElement("div");
-          projectCard.className =
-            "p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors";
-          projectCard.innerHTML = `
-                    <div class="font-medium text-sm">${
-                      project.properties.name ||
-                      `Project ${project.properties.projectId}`
-                    }</div>
-                    <div class="text-xs text-gray-600">ID: ${
-                      project.properties.projectId
-                    }</div>
-                `;
-          projectCard.onclick = () =>
-            loadProjectDetails(project.properties.projectId);
-          container.appendChild(projectCard);
-        });
-      }
-
-      function addProjectsToMap(projects) {
-        const geojson = { type: "FeatureCollection", features: projects };
-        map.addSource("projects", { type: "geojson", data: geojson });
-        map.addLayer({
-          id: "projects-points",
-          type: "circle",
-          source: "projects",
-          paint: {
-            "circle-radius": 6,
-            "circle-color": "#3b82f6",
-            "circle-stroke-color": "white",
-            "circle-stroke-width": 2,
-          },
-        });
-        map.on("click", "projects-points", (e) =>
-          loadProjectDetails(e.features[0].properties.projectId)
-        );
-        map.on(
-          "mouseenter",
-          "projects-points",
-          () => (map.getCanvas().style.cursor = "pointer")
-        );
-        map.on(
-          "mouseleave",
-          "projects-points",
-          () => (map.getCanvas().style.cursor = "")
-        );
-      }
-
-      async function loadProjectDetails(projectId) {
-        try {
-          const response = await axios.get(
-            `${TASKING_MANAGER_API_URL}/api/v2/projects/${projectId}`
-          );
-          currentProject = response.data;
-          displayProjectDetails(currentProject);
-          addProjectBoundaryToMap(currentProject);
-          document.getElementById("projectDetails").classList.remove("hidden");
-          document.getElementById("projectsList").classList.add("hidden");
-        } catch (error) {
-          console.error("Error loading project details:", error);
-        }
-      }
-
-      function displayProjectDetails(project) {
-        document.getElementById("projectName").textContent =
-          project.projectInfo.name;
-        document.getElementById("projectDescription").textContent =
-          project.projectInfo.shortDescription;
-        document.getElementById(
-          "percentMapped"
-        ).textContent = `${project.percentMapped}%`;
-        document.getElementById(
-          "percentValidated"
-        ).textContent = `${project.percentValidated}%`;
-
-        const statusEl = document.getElementById("projectStatus");
-        statusEl.textContent = project.status;
-        statusEl.className = `px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-          project.status
-        )}`;
-
-        const priorityEl = document.getElementById("projectPriority");
-        priorityEl.textContent = project.projectPriority;
-        priorityEl.className = `px-2 py-1 rounded-full text-xs font-medium ml-2 ${getPriorityColor(
-          project.projectPriority
-        )}`;
-
-        displayTaskStats(project.tasks);
-      }
-
-      function displayTaskStats(tasks) {
-        const stats = {};
-        tasks.features.forEach((task) => {
-          const status = task.properties.taskStatus;
-          stats[status] = (stats[status] || 0) + 1;
-        });
-        const container = document.getElementById("taskStats");
-        container.innerHTML = "";
-        Object.entries(stats).forEach(([status, count]) => {
-          const statDiv = document.createElement("div");
-          statDiv.className = "flex justify-between text-sm";
-          statDiv.innerHTML = `<span class="capitalize">${status
-            .toLowerCase()
-            .replace(
-              "_",
-              " "
-            )}</span><span class="font-medium">${count}</span>`;
-          container.appendChild(statDiv);
-        });
-      }
-
-      function addProjectBoundaryToMap(project) {
-        ["project-boundary", "project-tasks", "prediction-points"].forEach(
-          (id) => {
-            if (map.getSource(id)) {
-              if (id === "project-tasks") {
-                map.removeLayer("project-tasks-fill");
-                map.removeLayer("project-tasks-line");
-              } else {
-                map.removeLayer(id);
-              }
-              map.removeSource(id);
-            }
-          }
-        );
-
-        map.addSource("project-boundary", {
-          type: "geojson",
-          data: project.areaOfInterest,
-        });
-        map.addLayer({
-          id: "project-boundary",
-          type: "line",
-          source: "project-boundary",
-          paint: {
-            "line-color": "#ef4444",
-            "line-width": 3,
-            "line-opacity": 0.8,
-          },
-        });
-
-        map.addSource("project-tasks", {
-          type: "geojson",
-          data: project.tasks,
-        });
-        map.addLayer({
-          id: "project-tasks-fill",
-          type: "fill",
-          source: "project-tasks",
-          paint: {
-            "fill-color": [
-              "match",
-              ["get", "taskStatus"],
-              "VALIDATED",
-              "#10b981",
-              "MAPPED",
-              "#3b82f6",
-              "READY",
-              "#f3f4f6",
-              "INVALIDATED",
-              "#ef4444",
-              "#9ca3af",
-            ],
-            "fill-opacity": 0.6,
-          },
-        });
-        map.addLayer({
-          id: "project-tasks-line",
-          type: "line",
-          source: "project-tasks",
-          paint: {
-            "line-color": "#374151",
-            "line-width": 1,
-            "line-opacity": 0.5,
-          },
-        });
-
-        const bbox = turf.bbox(project.areaOfInterest);
-        map.fitBounds(bbox, { padding: 50 });
-      }
-
-      function getStatusColor(status) {
-        const colors = {
-          PUBLISHED: "bg-green-100 text-green-800",
-          DRAFT: "bg-yellow-100 text-yellow-800",
-          ARCHIVED: "bg-gray-100 text-gray-800",
-        };
-        return colors[status] || "bg-gray-100 text-gray-800";
-      }
-
-      function getPriorityColor(priority) {
-        const colors = {
-          HIGH: "bg-red-100 text-red-800",
-          MEDIUM: "bg-yellow-100 text-yellow-800",
-          LOW: "bg-green-100 text-green-800",
-        };
-        return colors[priority] || "bg-gray-100 text-gray-800";
-      }
-
-      function showAuthModal() {
-        document.getElementById("authModal").classList.remove("hidden");
-      }
-      function closeAuthModal() {
-        document.getElementById("authModal").classList.add("hidden");
-      }
-
-      async function authenticateUser() {
-        const token = document.getElementById("tokenInput").value.trim();
-        if (!token) {
-          alert("Please enter your access token");
-          return;
-        }
-        const button = document.getElementById("authButtonText"),
-          spinner = document.getElementById("authSpinner");
-        button.textContent = "Authenticating...";
-        spinner.classList.remove("hidden");
-        try {
-          const response = await axios.get(`${FAIR_API_URL}/api/v1/auth/me/`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          accessToken = token;
-          userInfo = response.data;
-          localStorage.setItem("fairAccessToken", token);
-          displayUserInfo(userInfo);
-          closeAuthModal();
-          showPredictionModal();
-        } catch (error) {
-          alert("Invalid access token. Please check and try again.");
-        } finally {
-          button.textContent = "Authenticate";
-          spinner.classList.add("hidden");
-        }
-      }
-
-      function displayUserInfo(user) {
-        document.getElementById("userInfo").classList.remove("hidden");
-        document.getElementById("userName").textContent = user.name || "User";
-        document.getElementById("userEmail").textContent = user.email || "";
-        if (user.avatar)
-          document.getElementById("userAvatar").src = user.avatar;
-      }
-
-      function showPredictionModal() {
-        if (!accessToken) {
-          showAuthModal();
-          return;
-        }
-        if (!currentProject) {
-          alert("Please select a project first");
-          return;
-        }
-        document.getElementById(
-          "predictionDescription"
-        ).value = `Tasking Manager Project ${currentProject.projectId}`;
-        document.getElementById(
-          "predictionFolder"
-        ).value = `TM/${currentProject.projectId}`;
-        const imagery = currentProject.imagery || "EsriWorldImagery";
-        document.getElementById("sourceImagery").value = imagery;
-        document.getElementById("predictionModal").classList.remove("hidden");
-      }
-
-      function closePredictionModal() {
-        document.getElementById("predictionModal").classList.add("hidden");
-      }
-
-      async function checkExistingPredictions() {
-        if (!currentProject) {
-          alert("Please select a project first");
-          return;
-        }
-        try {
-          const response = await axios.get(
-            `${FAIR_API_URL}/api/workspace/prediction/TM/${currentProject.projectId}`
-          );
-          if (response.data && response.data.length > 0) {
-            displayPredictionResults(response.data);
-            loadPredictionResultsOnMap(currentProject.projectId);
-          } else {
-            alert("No existing predictions found for this project");
-          }
-        } catch (error) {
-          alert("No existing predictions found for this project");
-        }
-      }
-
-      function displayPredictionResults(files) {
-        const container = document.getElementById("predictionFiles");
-        container.innerHTML = "";
-        files.forEach((file) => {
-          const fileDiv = document.createElement("div");
-          fileDiv.className = "text-sm text-green-600";
-          fileDiv.textContent = file;
-          container.appendChild(fileDiv);
-        });
-        document.getElementById("predictionResults").classList.remove("hidden");
-      }
-
-      async function loadPredictionResultsOnMap(projectId) {
-        try {
-          const response = await axios.get(
-            `${FAIR_API_URL}/api/workspace/prediction/TM/${projectId}/labels_points.geojson`
-          );
-          if (map.getSource("prediction-points")) {
-            map.removeLayer("prediction-points");
-            map.removeSource("prediction-points");
-          }
-          map.addSource("prediction-points", {
-            type: "geojson",
-            data: response.data,
-          });
-          map.addLayer({
-            id: "prediction-points",
-            type: "circle",
-            source: "prediction-points",
-            paint: {
-              "circle-radius": 4,
-              "circle-color": "#f59e0b",
-              "circle-stroke-color": "white",
-              "circle-stroke-width": 1,
-            },
-          });
-          addChoroplethLayer(response.data);
-        } catch (error) {
-          console.error("Error loading prediction results:", error);
-        }
-      }
-
-      function addChoroplethLayer(predictionData) {
-        if (!currentProject?.tasks) return;
-        const taskCounts = {};
-        let totalPredictions = 0;
-
-        predictionData.features.forEach((prediction) => {
-          currentProject.tasks.features.forEach((task) => {
-            if (
-              turf.booleanPointInPolygon(prediction.geometry, task.geometry)
-            ) {
-              const taskId = task.properties.taskId;
-              taskCounts[taskId] = (taskCounts[taskId] || 0) + 1;
-              totalPredictions++;
-            }
-          });
-        });
-
-        const tasksWithCounts = {
-          ...currentProject.tasks,
-          features: currentProject.tasks.features.map((task) => ({
-            ...task,
-            properties: {
-              ...task.properties,
-              predictionCount: taskCounts[task.properties.taskId] || 0,
-            },
-          })),
-        };
-
-        if (map.getSource("project-tasks")) {
-          map.getSource("project-tasks").setData(tasksWithCounts);
-          map.setPaintProperty("project-tasks-fill", "fill-color", [
-            "interpolate",
-            ["linear"],
-            ["get", "predictionCount"],
-            0,
-            "#f3f4f6",
-            1,
-            "#fef3c7",
-            5,
-            "#fbbf24",
-            10,
-            "#f59e0b",
-            20,
-            "#d97706",
-          ]);
-        }
-
-        const tasksWithPredictions = Object.keys(taskCounts).length;
-        document.getElementById(
-          "predictionStats"
-        ).innerHTML = `Total: ${totalPredictions} predictions in ${tasksWithPredictions} tasks`;
-      }
-
-      document
-        .getElementById("predictionForm")
-        .addEventListener("submit", async (e) => {
-          e.preventDefault();
-          const formData = new FormData(e.target);
-          const config = {
-            source:
-              document.getElementById("customSource").value ||
-              getImageryTileUrl(document.getElementById("sourceImagery").value),
-            model: document.getElementById("modelSelect").value,
-            confidence: parseFloat(document.getElementById("confidence").value),
-            max_angle_change: parseInt(
-              document.getElementById("maxAngle").value
-            ),
-            max_area: parseInt(document.getElementById("maxArea").value),
-            min_area: parseInt(document.getElementById("minArea").value),
-            tile_size: parseInt(document.getElementById("tileSize").value),
-            zoom_level: parseInt(document.getElementById("zoomLevel").value),
-          };
-
-          const submitButton = document.getElementById("submitButtonText"),
-            submitSpinner = document.getElementById("submitSpinner");
-          submitButton.textContent = "Generating...";
-          submitSpinner.classList.remove("hidden");
-
-          try {
-            const payload = {
-              geom: currentProject.areaOfInterest,
-              config: config,
-              description: document.getElementById("predictionDescription")
-                .value,
-              folder: document.getElementById("predictionFolder").value,
-            };
-            const response = await axios.post(
-              `${FAIR_API_URL}/api/v1/prediction/`,
-              payload,
-              { headers: { Authorization: `Bearer ${accessToken}` } }
-            );
-            closePredictionModal();
-            monitorPredictionStatus(response.data.task_id);
-          } catch (error) {
-            alert("Error generating predictions: " + error.message);
-          } finally {
-            submitButton.textContent = "Generate Predictions";
-            submitSpinner.classList.add("hidden");
-          }
-        });
-
-      function getImageryTileUrl(imagery) {
-        const tileUrls = {
-          Bing: "https://ecn.t{s}.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1",
-          Mapbox:
-            "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}?access_token=YOUR_TOKEN",
-          EsriWorldImagery:
-            "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          "Maxar-Standard":
-            "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        };
-        return tileUrls[imagery] || tileUrls["EsriWorldImagery"];
-      }
-
-      async function monitorPredictionStatus(taskId) {
-        document.getElementById("statusModal").classList.remove("hidden");
-        const checkStatus = async () => {
-          try {
-            const response = await axios.get(
-              `${FAIR_API_URL}/api/v1/task/status/${taskId}`,
-              { headers: { Authorization: `Bearer ${accessToken}` } }
-            );
-            const status = response.data.status;
-            document.getElementById("statusText").textContent = `Status: ${
-              status.charAt(0).toUpperCase() + status.slice(1)
-            }`;
-            const progress =
-              status === "finished" ? 100 : status === "running" ? 50 : 10;
-            document.getElementById("progressBar").style.width = `${progress}%`;
-            if (status === "finished") {
-              document.getElementById("statusText").textContent =
-                "Prediction completed!";
-              setTimeout(() => {
-                closeStatusModal();
-                loadPredictionResultsOnMap(currentProject.projectId);
-              }, 2000);
-            } else if (status === "failed") {
-              document.getElementById("statusText").textContent =
-                "Prediction failed";
-            } else {
-              setTimeout(checkStatus, 5000);
-            }
-          } catch (error) {
-            console.error("Error checking status:", error);
-            setTimeout(checkStatus, 5000);
-          }
-        };
-        checkStatus();
-      }
-
-      function closeStatusModal() {
-        document.getElementById("statusModal").classList.add("hidden");
-      }
-
-      function backToProjectsList() {
-        document.getElementById("projectDetails").classList.add("hidden");
-        document.getElementById("projectsList").classList.remove("hidden");
-        [
-          "project-boundary",
-          "project-tasks-fill",
-          "project-tasks-line",
-          "prediction-points",
-        ].forEach((layer) => {
-          if (map.getLayer(layer)) map.removeLayer(layer);
-        });
-        ["project-boundary", "project-tasks", "prediction-points"].forEach(
-          (source) => {
-            if (map.getSource(source)) map.removeSource(source);
-          }
-        );
-        currentProject = null;
-      }
-
-      if (accessToken) {
-        axios
-          .get(`${FAIR_API_URL}/api/v1/auth/me/`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          })
-          .then((response) => {
-            userInfo = response.data;
-            displayUserInfo(userInfo);
-          })
-          .catch(() => {
-            localStorage.removeItem("fairAccessToken");
-            accessToken = null;
-          });
-      }
-
-      initMap();
-    </script>
+    <script src="js/app.js"></script>
   </body>
 </html>
