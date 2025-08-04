@@ -3,6 +3,7 @@ const FAIR_API_URL = window.FAIR_API_URL || "https://fair-dev.hotosm.org";
 const TASKING_MANAGER_API_URL =
     window.TASKING_MANAGER_API_URL ||
     "https://tasking-manager-dev-api.hotosm.org";
+const MAPBOX_ACCESS_TOKEN = window.MAPBOX_ACCESS_TOKEN || process.env.MAPBOX_ACCESS_TOKEN;
 
 let map,
     currentProject = null,
@@ -336,15 +337,22 @@ function showPredictionModal() {
         "predictionFolder"
     ).value = `TM/${currentProject.projectId}`;
 
-    // Auto-populate source imagery from project details or fallback to Bing
     let sourceImagery = "";
     if (currentProject.imagery) {
         sourceImagery = currentProject.imagery;
     } else if (currentProject.projectInfo && currentProject.projectInfo.imagery) {
         sourceImagery = currentProject.projectInfo.imagery;
     } else {
-        // Fallback to Bing
         sourceImagery = getImageryTileUrl("Bing");
+    }
+
+    if (sourceImagery && sourceImagery.trim().toLowerCase() === "mapbox") {
+        if (MAPBOX_ACCESS_TOKEN) {
+            sourceImagery = `https://{s}.tiles.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg?access_token=${MAPBOX_ACCESS_TOKEN}`;
+        } else {
+            console.warn("Mapbox source detected but MAPBOX_ACCESS_TOKEN not found in environment");
+            sourceImagery = getImageryTileUrl("Bing");
+        }
     }
 
     document.getElementById("sourceImagery").value = sourceImagery;
@@ -551,14 +559,14 @@ document
             submitSpinner.classList.add("hidden");
         }
     });
-
 function getImageryTileUrl(imagery) {
     const tileUrls = {
         Bing: "https://ecn.t{s}.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1",
-        Mapbox:
-            "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}?access_token=YOUR_TOKEN",
+        Mapbox: MAPBOX_ACCESS_TOKEN
+            ? `https://{s}.tiles.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg?access_token=${MAPBOX_ACCESS_TOKEN}`
+            : null,
         EsriWorldImagery:
-            "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?blankTile=false",
         "Maxar-Standard":
             "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     };
