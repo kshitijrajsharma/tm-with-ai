@@ -109,7 +109,6 @@ async function loadProjectDetails(projectId) {
         currentProject = response.data;
         displayProjectDetails(currentProject);
         addProjectBoundaryToMap(currentProject);
-        // Check for existing predictions automatically
         await checkExistingPredictionsOnLoad();
         document.getElementById("projectDetails").classList.remove("hidden");
         document.getElementById("projectsList").classList.add("hidden");
@@ -384,6 +383,23 @@ async function checkExistingPredictions() {
 
 }
 
+async function checkExistingPredictionsOnLoad() {
+    if (!currentProject) return;
+
+    try {
+        const response = await axios.get(
+            `${FAIR_API_URL}/api/v1/workspace/prediction/TM/${currentProject.projectId}`
+        );
+        if (response.status === 200) {
+            console.log("Existing predictions found:", response.data);
+            displayPredictionResults(response.data);
+            await loadPredictionResultsOnMap(currentProject.projectId);
+        }
+    } catch (error) {
+        console.log("No existing predictions found for this project");
+    }
+}
+
 function displayPredictionResults(data) {
     const container = document.getElementById("predictionFiles");
     container.innerHTML = "";
@@ -431,6 +447,7 @@ function addChoroplethLayer(predictionData) {
     if (!currentProject?.tasks) return;
     const taskCounts = {};
     let totalPredictions = 0;
+    let maxCount = 0;
     console.log(predictionData);
 
     predictionData.features.forEach((prediction) => {
@@ -441,6 +458,9 @@ function addChoroplethLayer(predictionData) {
                 const taskId = task.properties.taskId;
                 taskCounts[taskId] = (taskCounts[taskId] || 0) + 1;
                 totalPredictions++;
+                if (taskCounts[taskId] > maxCount) {
+                    maxCount = taskCounts[taskId];
+                }
             }
         });
     });
@@ -458,19 +478,24 @@ function addChoroplethLayer(predictionData) {
 
     if (map.getSource("project-tasks")) {
         map.getSource("project-tasks").setData(tasksWithCounts);
+
+        const lowThreshold = Math.min(Math.max(1, Math.floor(maxCount * 0.2)), maxCount);
+        const midThreshold = Math.min(Math.max(lowThreshold + 1, Math.floor(maxCount * 0.5)), maxCount);
+        const highThreshold = Math.min(Math.max(midThreshold + 1, Math.floor(maxCount * 0.8)), maxCount);
+
         map.setPaintProperty("project-tasks-fill", "fill-color", [
             "interpolate",
             ["linear"],
             ["get", "predictionCount"],
             0,
             "#f3f4f6",
-            1,
+            lowThreshold,
             "#fef3c7",
-            5,
+            midThreshold,
             "#fbbf24",
-            10,
+            highThreshold,
             "#f59e0b",
-            20,
+            maxCount,
             "#d97706",
         ]);
     }
@@ -478,7 +503,88 @@ function addChoroplethLayer(predictionData) {
     const tasksWithPredictions = Object.keys(taskCounts).length;
     document.getElementById(
         "predictionStats"
-    ).innerHTML = `Total: ${totalPredictions} predictions in ${tasksWithPredictions} tasks`;
+    ).innerHTML = `
+        <div class="text-lg font-semibold text-green-700 mb-2">
+            AI Building Predictions Available
+        </div>
+        <div class="text-sm space-y-1">
+            <div><strong>Estimated Buildings:</strong> ${totalPredictions.toLocaleString()}</div>
+            <div><strong>Tasks with Predictions:</strong> ${tasksWithPredictions} / ${currentProject.tasks.features.length}</div>
+            <div><strong>Avg. Buildings per Task:</strong> ${tasksWithPredictions > 0 ? Math.round(totalPredictions / tasksWithPredictions) : 0}</div>
+        </div>
+    `;
+
+    addPredictionLegend(maxCount);
+}
+
+function addPredictionLegend(maxCount) {
+    const existingLegend = document.getElementById("prediction-legend");
+    if (existingLegend) {
+        existingLegend.remove();
+    }
+
+    const legend = document.createElement("div");
+    legend.id = "prediction-legend";
+    legend.style.cssText = `
+        position: absolute;
+        bottom: 40px;
+        left: 10px;
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 12px;
+        z-index: 1000;
+        min-width: 200px;
+    `;
+
+    // Calculate the same break points as in the choropleth
+    const lowThreshold = Math.min(Math.max(1, Math.floor(maxCount * 0.2)), maxCount);
+    const midThreshold = Math.min(Math.max(lowThreshold + 1, Math.floor(maxCount * 0.5)), maxCount);
+    const highThreshold = Math.min(Math.max(midThreshold + 1, Math.floor(maxCount * 0.8)), maxCount);
+
+    const breaks = [
+        { min: 0, max: 0, color: "#f3f4f6", label: "No buildings" },
+        { min: 1, max: lowThreshold, color: "#fef3c7", label: "Low density" },
+        { min: lowThreshold + 1, max: midThreshold, color: "#fbbf24", label: "Medium density" },
+        { min: midThreshold + 1, max: highThreshold, color: "#f59e0b", label: "High density" },
+        { min: highThreshold + 1, max: maxCount, color: "#d97706", label: "Very high density" }
+    ].filter(b => b.min <= b.max); // Remove invalid ranges
+
+    legend.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 10px; color: #374151;">
+            Building Density Legend
+        </div>
+        <div style="margin-bottom: 10px;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+                <input type="checkbox" id="togglePredictionPoints" checked style="margin-right: 8px;">
+                Show individual buildings
+            </label>
+        </div>
+        ${breaks.map(b => `
+            <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                <div style="width: 20px; height: 15px; background-color: ${b.color}; margin-right: 8px; border: 1px solid #e5e7eb;"></div>
+                <span>${b.label} ${b.min === b.max && b.min === 0 ? '' : b.min === b.max ? `(${b.min})` : `(${b.min}-${b.max})`}</span>
+            </div>
+        `).join('')}
+    `;
+
+    document.getElementById("map").appendChild(legend);
+
+    document.getElementById("togglePredictionPoints").addEventListener("change", function (e) {
+        const visibility = e.target.checked ? "visible" : "none";
+        if (map.getLayer("prediction-points")) {
+            map.setLayoutProperty("prediction-points", "visibility", visibility);
+        }
+    });
+}
+
+function removePredictionLegend() {
+    const legend = document.getElementById("prediction-legend");
+    if (legend) {
+        legend.remove();
+    }
 }
 
 document
@@ -562,6 +668,7 @@ document
             submitSpinner.classList.add("hidden");
         }
     });
+
 function getImageryTileUrl(imagery) {
     const tileUrls = {
         Bing: "https://ecn.t{s}.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1",
@@ -631,6 +738,7 @@ function backToProjectsList() {
             if (map.getSource(source)) map.removeSource(source);
         }
     );
+    removePredictionLegend();
     currentProject = null;
 }
 
