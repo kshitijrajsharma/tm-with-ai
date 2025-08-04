@@ -3,7 +3,7 @@ const FAIR_API_URL = window.FAIR_API_URL || "https://fair-dev.hotosm.org";
 const TASKING_MANAGER_API_URL =
     window.TASKING_MANAGER_API_URL ||
     "https://tasking-manager-dev-api.hotosm.org";
-const MAPBOX_ACCESS_TOKEN = window.MAPBOX_ACCESS_TOKEN || process.env.MAPBOX_ACCESS_TOKEN;
+const MAPBOX_ACCESS_TOKEN = window.MAPBOX_ACCESS_TOKEN;
 
 let map,
     currentProject = null,
@@ -109,6 +109,8 @@ async function loadProjectDetails(projectId) {
         currentProject = response.data;
         displayProjectDetails(currentProject);
         addProjectBoundaryToMap(currentProject);
+        // Check for existing predictions automatically
+        await checkExistingPredictionsOnLoad();
         document.getElementById("projectDetails").classList.remove("hidden");
         document.getElementById("projectsList").classList.add("hidden");
     } catch (error) {
@@ -368,28 +370,28 @@ async function checkExistingPredictions() {
         alert("Please select a project first");
         return;
     }
-    try {
-        const response = await axios.get(
-            `${FAIR_API_URL}/api/workspace/prediction/TM/${currentProject.projectId}`
-        );
-        if (response.data && response.data.length > 0) {
-            displayPredictionResults(response.data);
-            loadPredictionResultsOnMap(currentProject.projectId);
-        } else {
-            alert("No existing predictions found for this project");
-        }
-    } catch (error) {
+
+    const response = await axios.get(
+        `${FAIR_API_URL}/api/v1/workspace/prediction/TM/${currentProject.projectId}`
+    );
+    if (response.status === 200) {
+        console.log("Existing predictions found:", response.data);
+        displayPredictionResults(response.data);
+        loadPredictionResultsOnMap(currentProject.projectId);
+    } else {
         alert("No existing predictions found for this project");
     }
+
 }
 
-function displayPredictionResults(files) {
+function displayPredictionResults(data) {
     const container = document.getElementById("predictionFiles");
     container.innerHTML = "";
-    files.forEach((file) => {
+    const files = data.file
+    Object.entries(files).forEach(([key, file]) => {
         const fileDiv = document.createElement("div");
         fileDiv.className = "text-sm text-green-600";
-        fileDiv.textContent = file;
+        fileDiv.textContent = `${key}: ${file}`;
         container.appendChild(fileDiv);
     });
     document.getElementById("predictionResults").classList.remove("hidden");
@@ -398,7 +400,7 @@ function displayPredictionResults(files) {
 async function loadPredictionResultsOnMap(projectId) {
     try {
         const response = await axios.get(
-            `${FAIR_API_URL}/api/workspace/prediction/TM/${projectId}/labels_points.geojson`
+            `${FAIR_API_URL}/api/v1/workspace/download/prediction/TM/${projectId}/labels_points.geojson`
         );
         if (map.getSource("prediction-points")) {
             map.removeLayer("prediction-points");
@@ -429,6 +431,7 @@ function addChoroplethLayer(predictionData) {
     if (!currentProject?.tasks) return;
     const taskCounts = {};
     let totalPredictions = 0;
+    console.log(predictionData);
 
     predictionData.features.forEach((prediction) => {
         currentProject.tasks.features.forEach((task) => {
