@@ -102,8 +102,45 @@ function initializeApp() {
     setupEventListeners();
     initializeMap();
     checkAuthentication();
+    checkUrlParameters();
 
     document.getElementById('environmentSelect').value = currentEnvironment;
+}
+
+function checkUrlParameters() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+
+    const projectId = urlParams.get('project') || hashParams.get('project');
+    const environment = urlParams.get('env') || hashParams.get('env');
+
+    if (environment && (environment === 'dev' || environment === 'prod')) {
+        currentEnvironment = environment;
+        document.getElementById('environmentSelect').value = currentEnvironment;
+    }
+
+    if (projectId) {
+        document.getElementById('projectIdInput').value = projectId;
+        setTimeout(() => {
+            loadProject();
+        }, 1000);
+    }
+}
+
+function updateUrl(projectId, environment = null) {
+    const url = new URL(window.location);
+
+    if (projectId) {
+        url.searchParams.set('project', projectId);
+    } else {
+        url.searchParams.delete('project');
+    }
+
+    if (environment) {
+        url.searchParams.set('env', environment);
+    }
+
+    window.history.pushState({}, '', url);
 }
 
 async function checkAuthentication() {
@@ -183,6 +220,9 @@ function setupEventListeners() {
     document.getElementById('environmentSelect').addEventListener('change', (e) => {
         currentEnvironment = e.target.value;
         checkAuthentication();
+
+        const projectId = currentProject ? currentProject.projectId : null;
+        updateUrl(projectId, currentEnvironment);
     });
     document.getElementById('projectIdInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') loadProject();
@@ -258,6 +298,8 @@ function clearPreviousProjectData() {
     predictionData = null;
     taskStats = null;
 
+    updateUrl(null, currentEnvironment);
+
     const elementsToReset = [
         { id: 'projectInfo', action: 'clear' },
         { id: 'predictionStatus', action: 'clear' },
@@ -325,6 +367,8 @@ async function loadProject() {
         displayProjectInfo(currentProject);
         addProjectToMap(currentProject);
         await checkPredictions(projectId);
+
+        updateUrl(projectId, currentEnvironment);
 
         document.getElementById('projectSection').classList.remove('hidden');
 
