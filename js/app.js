@@ -9,33 +9,123 @@ const API_CONFIG = {
     }
 };
 
+const MODEL_OPTIONS = {
+    ramp: 'https://api-prod.fair.hotosm.org/api/v1/workspace/download/ramp/baseline.tflite',
+    yolo: 'https://api-prod.fair.hotosm.org/api/v1/workspace/download/yolo/yolov8s_v2-seg.onnx'
+};
+
 let map;
 let currentProject = null;
 let currentEnvironment = 'dev';
 let predictionData = null;
 let taskStats = null;
+let userToken = localStorage.getItem('fairAccessToken');
+let currentUser = null;
 
 function getImageryTileUrl(imagery) {
+    const MAPBOX_ACCESS_TOKEN = null;
+    
     const tileUrls = {
         Bing: "https://ecn.t{s}.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1",
-        Mapbox: "https://{s}.tiles.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg",
-        EsriWorldImagery: "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        Mapbox: MAPBOX_ACCESS_TOKEN
+            ? `https://{s}.tiles.mapbox.com/v4/mapbox.satellite/{z}/{x}/{y}@2x.jpg?access_token=${MAPBOX_ACCESS_TOKEN}`
+            : null,
+        EsriWorldImagery: "https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}?blankTile=false",
         "Maxar-Standard": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
     };
-    return tileUrls[imagery] || tileUrls["Bing"];
+    return tileUrls[imagery] || tileUrls["EsriWorldImagery"];
+}
+
+function getProjectImageryUrl(project) {
+    if (project?.customEditor?.imagery) {
+        return project.customEditor.imagery;
+    }
+    return null;
 }
 
 function initializeApp() {
     setupEventListeners();
     initializeMap();
+    checkAuthentication();
 
     document.getElementById('environmentSelect').value = currentEnvironment;
+}
+
+async function checkAuthentication() {
+    if (userToken) {
+        try {
+            const config = API_CONFIG[currentEnvironment];
+            const response = await axios.get(`${config.fair}/auth/me/`, {
+                headers: { 'access-token': userToken }
+            });
+            currentUser = response.data;
+            updateUserInterface();
+        } catch (error) {
+            userToken = null;
+            localStorage.removeItem('fairAccessToken');
+            showAuthPrompt();
+        }
+    } else {
+        showAuthPrompt();
+    }
+}
+
+function updateUserInterface() {
+    if (currentUser) {
+        document.getElementById('authSection').innerHTML = `
+            <div class="flex items-center space-x-3">
+                <img src="${currentUser.img_url}" alt="Profile" class="w-8 h-8 rounded-full">
+                <span class="text-sm text-red-700">${currentUser.username}</span>
+                <button onclick="logout()" class="text-xs text-red-500 hover:text-red-700">Logout</button>
+            </div>
+        `;
+    }
+}
+
+function showAuthPrompt() {
+    const authHtml = `
+        <div class="flex items-center space-x-3">
+            <input type="password" id="tokenInput" placeholder="Enter fAIr Access Token" 
+                   class="px-3 py-1 text-sm border border-red-200 rounded">
+            <button onclick="authenticate()" class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                Login
+            </button>
+        </div>
+    `;
+    document.getElementById('authSection').innerHTML = authHtml;
+}
+
+async function authenticate() {
+    const token = document.getElementById('tokenInput').value.trim();
+    if (!token) return;
+
+    try {
+        const config = API_CONFIG[currentEnvironment];
+        const response = await axios.get(`${config.fair}/auth/me/`, {
+            headers: { 'access-token': token }
+        });
+        
+        userToken = token;
+        currentUser = response.data;
+        localStorage.setItem('fairAccessToken', token);
+        updateUserInterface();
+    } catch (error) {
+        alert('Invalid access token');
+    }
+}
+
+function logout() {
+    userToken = null;
+    currentUser = null;
+    localStorage.removeItem('fairAccessToken');
+    showAuthPrompt();
 }
 
 function setupEventListeners() {
     document.getElementById('loadProjectBtn').addEventListener('click', loadProject);
     document.getElementById('environmentSelect').addEventListener('change', (e) => {
         currentEnvironment = e.target.value;
+        checkAuthentication();
     });
     document.getElementById('projectIdInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') loadProject();
@@ -44,6 +134,13 @@ function setupEventListeners() {
     document.getElementById('confirmGenerate').addEventListener('click', generatePredictions);
     document.getElementById('showPredictionsToggle').addEventListener('change', togglePredictions);
     document.getElementById('downloadStats').addEventListener('click', downloadTaskStats);
+    document.getElementById('advancedToggle').addEventListener('change', toggleAdvancedSettings);
+}
+
+function toggleAdvancedSettings() {
+    const toggle = document.getElementById('advancedToggle');
+    const settings = document.getElementById('advancedSettings');
+    settings.classList.toggle('hidden', !toggle.checked);
 }
 
 function initializeMap() {
@@ -327,7 +424,7 @@ async function checkPredictions(projectId) {
 
         actions.innerHTML = `
             <button onclick="showGenerateModal()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                Generate Predictions
+                Request Predictions
             </button>
         `;
         actions.classList.remove('hidden');
@@ -598,37 +695,96 @@ function downloadTaskStats() {
 }
 
 function showGenerateModal() {
-    const imagery = currentProject?.customEditor?.imagery || currentProject?.imagery || 'Bing';
-    document.getElementById('imagerySelect').value = imagery;
+    if (!userToken) {
+        alert('Please login first with your fAIr access token');
+        return;
+    }
+
+    const projectImageryUrl = getProjectImageryUrl(currentProject);
+    let defaultImagery = 'Bing';
+    
+    if (projectImageryUrl) {
+        const imagerySelect = document.getElementById('imagerySelect');
+        const customOption = document.createElement('option');
+        customOption.value = 'custom';
+        customOption.textContent = 'Project Default';
+        customOption.selected = true;
+        imagerySelect.insertBefore(customOption, imagerySelect.firstChild);
+        defaultImagery = 'custom';
+    }
+    
+    document.getElementById('imagerySelect').value = defaultImagery;
     document.getElementById('generateModal').classList.remove('hidden');
 }
 
 function closeGenerateModal() {
     document.getElementById('generateModal').classList.add('hidden');
+    
+    const imagerySelect = document.getElementById('imagerySelect');
+    const customOption = imagerySelect.querySelector('option[value="custom"]');
+    if (customOption) {
+        customOption.remove();
+    }
+    
+    document.getElementById('advancedToggle').checked = false;
+    document.getElementById('advancedSettings').classList.add('hidden');
 }
 
 async function generatePredictions() {
-    if (!currentProject) return;
+    if (!currentProject || !userToken) return;
 
     setGenerateLoadingState(true);
 
     try {
         const imagery = document.getElementById('imagerySelect').value;
+        const model = document.getElementById('modelSelect').value;
         const zoom = parseInt(document.getElementById('zoomSelect').value);
-        const tileUrl = getImageryTileUrl(imagery);
+        
+        let imageSource;
+        if (imagery === 'custom') {
+            imageSource = getProjectImageryUrl(currentProject);
+        } else {
+            imageSource = getImageryTileUrl(imagery);
+        }
+
+        if (!imageSource) {
+            imageSource = getImageryTileUrl('Bing');
+        }
+
+        const tolerance = parseFloat(document.getElementById('toleranceInput').value);
+        const areaThreshold = parseInt(document.getElementById('areaThresholdInput').value);
+        const confidence = parseInt(document.getElementById('confidenceInput').value);
+        const orthogonalize = document.getElementById('orthogonalizeInput').checked;
+        const maxAngleChange = parseInt(document.getElementById('maxAngleInput').value);
+        const skewTolerance = parseInt(document.getElementById('skewToleranceInput').value);
 
         const config = API_CONFIG[currentEnvironment];
+        const folder = `TM/${currentEnvironment}/${currentProject.projectId}`;
+        
         const payload = {
             geom: currentProject.areaOfInterest,
             config: {
-                tile_url: tileUrl,
-                zoom_level: zoom
+                tolerance: tolerance,
+                area_threshold: areaThreshold,
+                orthogonalize: orthogonalize,
+                confidence: confidence,
+                checkpoint: MODEL_OPTIONS[model],
+                ortho_max_angle_change_deg: maxAngleChange,
+                zoom_level: zoom,
+                model_id: model === 'ramp' ? '452' : '453',
+                ortho_skew_tolerance_deg: skewTolerance,
+                source: imageSource
             },
-            description: `TM Project ${currentProject.projectId} - ${imagery} imagery`,
-            folder: `TM/${currentProject.projectId}`
+            description: `Tasking Manager Project ${currentProject.projectId} - ${currentProject.projectInfo?.name || 'Unknown'}`,
+            folder: folder
         };
 
-        const response = await axios.post(`${config.fair}/workspace/prediction/`, payload);
+        const response = await axios.post(`${config.fair}/prediction/`, payload, {
+            headers: {
+                'access-token': userToken,
+                'Content-Type': 'application/json'
+            }
+        });
 
         if (response.status === 200 || response.status === 201) {
             closeGenerateModal();
@@ -639,7 +795,7 @@ async function generatePredictions() {
                     <span class="text-gray-600">Generation started. Check back in a few minutes.</span>
                 </div>
             `;
-            setTimeout(() => checkPredictions(currentProject.projectId), 5000);
+            setTimeout(() => checkPredictions(currentProject.projectId), 10000);
         }
 
     } catch (error) {
@@ -650,6 +806,7 @@ async function generatePredictions() {
                 <span class="text-gray-600">Failed to generate predictions</span>
             </div>
         `;
+        console.error(error);
     } finally {
         setGenerateLoadingState(false);
     }
