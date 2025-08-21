@@ -24,7 +24,7 @@ let currentUser = null;
 
 function getImageryTileUrl(imagery) {
     const MAPBOX_ACCESS_TOKEN = null;
-    
+
     const tileUrls = {
         Bing: "https://ecn.t{s}.tiles.virtualearth.net/tiles/a{q}.jpeg?g=1",
         Mapbox: MAPBOX_ACCESS_TOKEN
@@ -41,6 +41,60 @@ function getProjectImageryUrl(project) {
         return project.customEditor.imagery;
     }
     return null;
+}
+
+function processGeometry(geometry) {
+    if (!geometry) return null;
+
+    if (geometry.type === 'Polygon') {
+        return geometry;
+    }
+
+    if (geometry.type === 'MultiPolygon') {
+        try {
+            const polygons = geometry.coordinates.map(coords => ({
+                type: 'Feature',
+                geometry: { type: 'Polygon', coordinates: coords }
+            }));
+
+            let result = polygons[0];
+            for (let i = 1; i < polygons.length; i++) {
+                result = turf.union(result, polygons[i]);
+            }
+            return result.geometry;
+        } catch (error) {
+            console.warn('Failed to union MultiPolygon, using bounding box');
+            const bbox = turf.bbox(geometry);
+            return turf.bboxPolygon(bbox).geometry;
+        }
+    }
+
+    if (geometry.type === 'FeatureCollection') {
+        try {
+            const features = geometry.features.filter(f =>
+                f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')
+            );
+            if (features.length === 0) return null;
+
+            let result = features[0];
+            for (let i = 1; i < features.length; i++) {
+                result = turf.union(result, features[i]);
+            }
+            return result.geometry;
+        } catch (error) {
+            console.warn('Failed to union FeatureCollection, using bounding box');
+            const bbox = turf.bbox(geometry);
+            return turf.bboxPolygon(bbox).geometry;
+        }
+    }
+
+    try {
+        const bbox = turf.bbox(geometry);
+        return turf.bboxPolygon(bbox).geometry;
+    } catch (error) {
+        console.error('Failed to process geometry:', error);
+        return null;
+    }
 }
 
 function initializeApp() {
@@ -76,7 +130,9 @@ function updateUserInterface() {
             <div class="flex items-center space-x-3">
                 <img src="${currentUser.img_url}" alt="Profile" class="w-8 h-8 rounded-full">
                 <span class="text-sm text-red-700">${currentUser.username}</span>
-                <button onclick="logout()" class="text-xs text-red-500 hover:text-red-700">Logout</button>
+                <button onclick="logout()" class="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+                    Logout
+                </button>
             </div>
         `;
     }
@@ -104,7 +160,7 @@ async function authenticate() {
         const response = await axios.get(`${config.fair}/auth/me/`, {
             headers: { 'access-token': token }
         });
-        
+
         userToken = token;
         currentUser = response.data;
         localStorage.setItem('fairAccessToken', token);
@@ -702,7 +758,7 @@ function showGenerateModal() {
 
     const projectImageryUrl = getProjectImageryUrl(currentProject);
     let defaultImagery = 'Bing';
-    
+
     if (projectImageryUrl) {
         const imagerySelect = document.getElementById('imagerySelect');
         const customOption = document.createElement('option');
@@ -712,20 +768,20 @@ function showGenerateModal() {
         imagerySelect.insertBefore(customOption, imagerySelect.firstChild);
         defaultImagery = 'custom';
     }
-    
+
     document.getElementById('imagerySelect').value = defaultImagery;
     document.getElementById('generateModal').classList.remove('hidden');
 }
 
 function closeGenerateModal() {
     document.getElementById('generateModal').classList.add('hidden');
-    
+
     const imagerySelect = document.getElementById('imagerySelect');
     const customOption = imagerySelect.querySelector('option[value="custom"]');
     if (customOption) {
         customOption.remove();
     }
-    
+
     document.getElementById('advancedToggle').checked = false;
     document.getElementById('advancedSettings').classList.add('hidden');
 }
@@ -739,7 +795,7 @@ async function generatePredictions() {
         const imagery = document.getElementById('imagerySelect').value;
         const model = document.getElementById('modelSelect').value;
         const zoom = parseInt(document.getElementById('zoomSelect').value);
-        
+
         let imageSource;
         if (imagery === 'custom') {
             imageSource = getProjectImageryUrl(currentProject);
@@ -760,9 +816,14 @@ async function generatePredictions() {
 
         const config = API_CONFIG[currentEnvironment];
         const folder = `TM/${currentEnvironment}/${currentProject.projectId}`;
-        
+
+        const processedGeometry = processGeometry(currentProject.areaOfInterest);
+        if (!processedGeometry) {
+            throw new Error('Failed to process project geometry');
+        }
+
         const payload = {
-            geom: currentProject.areaOfInterest,
+            geom: processedGeometry,
             config: {
                 tolerance: tolerance,
                 area_threshold: areaThreshold,
@@ -771,7 +832,6 @@ async function generatePredictions() {
                 checkpoint: MODEL_OPTIONS[model],
                 ortho_max_angle_change_deg: maxAngleChange,
                 zoom_level: zoom,
-                model_id: model === 'ramp' ? '452' : '453',
                 ortho_skew_tolerance_deg: skewTolerance,
                 source: imageSource
             },
