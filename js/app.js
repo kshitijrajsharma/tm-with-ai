@@ -5,7 +5,7 @@ const API_CONFIG = {
     },
     prod: {
         tm: 'https://tasking-manager-tm4-production-api.hotosm.org/api/v2',
-        fair: 'https://fair.hotosm.org/api/v1'
+        fair: 'https://api-prod.fair.hotosm.org/api/v1'
     }
 };
 
