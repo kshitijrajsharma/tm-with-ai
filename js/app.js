@@ -446,7 +446,7 @@ async function checkPredictions(projectId) {
 
     try {
         const config = API_CONFIG[currentEnvironment];
-        const response = await axios.get(`${config.fair}/workspace/prediction/TM/${projectId}/`);
+        const response = await axios.get(`${config.fair}/workspace/prediction/TM/${currentEnvironment}/${projectId}/`);
 
         if (response.status === 200) {
             const hasFiles = response.data.file && Object.keys(response.data.file).length > 0;
@@ -524,7 +524,7 @@ async function loadPredictions() {
 
     try {
         const config = API_CONFIG[currentEnvironment];
-        const response = await axios.get(`${config.fair}/workspace/download/prediction/TM/${currentProject.projectId}/labels_points.geojson/`);
+        const response = await axios.get(`${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/labels_points.geojson/`);
 
         predictionData = response.data;
         addPredictionsToMap(predictionData);
@@ -876,7 +876,7 @@ function downloadFile(filename) {
     if (!currentProject) return;
 
     const config = API_CONFIG[currentEnvironment];
-    const url = `${config.fair}/workspace/prediction/TM/${currentProject.projectId}/${filename}`;
+    const url = `${config.fair}/workspace/prediction/TM/${currentEnvironment}/${currentProject.projectId}/${filename}`;
 
     const link = document.createElement('a');
     link.href = url;
