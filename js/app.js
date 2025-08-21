@@ -946,7 +946,7 @@ function downloadFile(filename) {
     if (!currentProject) return;
 
     const config = API_CONFIG[currentEnvironment];
-    const url = `${config.fair}/workspace/prediction/TM/${currentEnvironment}/${currentProject.projectId}/${filename}`;
+    const url = `${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/${filename}`;
 
     const link = document.createElement('a');
     link.href = url;
