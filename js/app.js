@@ -833,10 +833,10 @@ async function generatePredictions() {
                 ortho_max_angle_change_deg: maxAngleChange,
                 zoom_level: zoom,
                 ortho_skew_tolerance_deg: skewTolerance,
-                source: imageSource
+                source: imageSource,
+                folder: folder
             },
             description: `Tasking Manager Project ${currentProject.projectId} - ${currentProject.projectInfo?.name || 'Unknown'}`,
-            folder: folder
         };
 
         const response = await axios.post(`${config.fair}/prediction/`, payload, {
