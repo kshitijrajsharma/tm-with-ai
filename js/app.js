@@ -1,10 +1,11 @@
 const API_CONFIG = {
     dev: {
-        tm: 'https://tasking-manager-dev-api.hotosm.org/api/v2',
+        tm: 'https://tm-prod.skshitizraj.workers.dev/api/v2',
+        // tm: 'https://tasking-manager-dev-api.hotosm.org/api/v2',
         fair: 'https://fair-dev.hotosm.org/api/v1'
     },
     prod: {
-        tm: 'https://tasking-manager-tm4-production-api.hotosm.org/api/v2',
+        tm: 'https://tm-prod.skshitizraj.workers.dev/api/v2',
         fair: 'https://api-prod.fair.hotosm.org/api/v1'
     }
 };
