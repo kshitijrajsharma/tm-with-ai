@@ -28,7 +28,7 @@ function getImageryTileUrl(imagery) {
 function initializeApp() {
     setupEventListeners();
     initializeMap();
-    
+
     document.getElementById('environmentSelect').value = currentEnvironment;
 }
 
@@ -69,14 +69,14 @@ function initializeMap() {
         center: [0, 0],
         zoom: 2
     });
-    
+
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
-    
+
     map.on('click', 'project-tasks-fill', (e) => {
         if (e.features.length > 0) {
             const task = e.features[0];
             const props = task.properties;
-            
+
             new maplibregl.Popup()
                 .setLngLat(e.lngLat)
                 .setHTML(`
@@ -89,11 +89,11 @@ function initializeMap() {
                 .addTo(map);
         }
     });
-    
+
     map.on('mouseenter', 'project-tasks-fill', () => {
         map.getCanvas().style.cursor = 'pointer';
     });
-    
+
     map.on('mouseleave', 'project-tasks-fill', () => {
         map.getCanvas().style.cursor = '';
     });
@@ -107,21 +107,21 @@ async function loadProject() {
     }
 
     setLoadingState(true);
-    
+
     try {
         const config = API_CONFIG[currentEnvironment];
         const response = await axios.get(`${config.tm}/projects/${projectId}/`);
         currentProject = response.data;
-        
+
         const tasksResponse = await axios.get(`${config.tm}/projects/${projectId}/tasks/`);
         currentProject.tasks = tasksResponse.data;
-        
+
         displayProjectInfo(currentProject);
         addProjectToMap(currentProject);
         await checkPredictions(projectId);
-        
+
         document.getElementById('projectSection').classList.remove('hidden');
-        
+
     } catch (error) {
         const status = document.getElementById('predictionStatus');
         status.innerHTML = `
@@ -163,7 +163,7 @@ function displayProjectInfo(project) {
 
 function addProjectToMap(project) {
     if (!project.areaOfInterest) return;
-    
+
     if (map.getSource('project-boundary')) {
         map.getSource('project-boundary').setData(project.areaOfInterest);
     } else {
@@ -171,7 +171,7 @@ function addProjectToMap(project) {
             type: 'geojson',
             data: project.areaOfInterest
         });
-        
+
         map.addLayer({
             id: 'project-boundary-fill',
             type: 'fill',
@@ -181,7 +181,7 @@ function addProjectToMap(project) {
                 'fill-opacity': 0.1
             }
         });
-        
+
         map.addLayer({
             id: 'project-boundary-line',
             type: 'line',
@@ -192,7 +192,7 @@ function addProjectToMap(project) {
             }
         });
     }
-    
+
     if (project.tasks) {
         if (map.getSource('project-tasks')) {
             map.getSource('project-tasks').setData(project.tasks);
@@ -201,7 +201,7 @@ function addProjectToMap(project) {
                 type: 'geojson',
                 data: project.tasks
             });
-            
+
             map.addLayer({
                 id: 'project-tasks-fill',
                 type: 'fill',
@@ -211,7 +211,7 @@ function addProjectToMap(project) {
                     'fill-opacity': 0.7
                 }
             });
-            
+
             map.addLayer({
                 id: 'project-tasks-line',
                 type: 'line',
@@ -223,7 +223,7 @@ function addProjectToMap(project) {
             });
         }
     }
-    
+
     const bbox = turf.bbox(project.areaOfInterest);
     map.fitBounds(bbox, { padding: 50 });
 }
@@ -231,22 +231,22 @@ function addProjectToMap(project) {
 async function checkPredictions(projectId) {
     const status = document.getElementById('predictionStatus');
     const actions = document.getElementById('predictionActions');
-    
+
     status.innerHTML = `
         <div class="flex items-center">
             <span class="status-dot status-loading"></span>
             <span class="text-gray-600">Checking predictions...</span>
         </div>
     `;
-    
+
     try {
         const config = API_CONFIG[currentEnvironment];
         const response = await axios.get(`${config.fair}/workspace/prediction/TM/${projectId}/`);
-        
+
         if (response.status === 200) {
             const hasFiles = response.data.file && Object.keys(response.data.file).length > 0;
             const hasDirs = response.data.dir && Object.keys(response.data.dir).length > 0;
-            
+
             if (hasFiles || hasDirs) {
                 status.innerHTML = `
                     <div class="flex items-center">
@@ -254,17 +254,17 @@ async function checkPredictions(projectId) {
                         <span class="text-gray-600">Loading predictions...</span>
                     </div>
                 `;
-                
+
                 displayPredictionFiles(response.data);
                 await loadPredictions();
             } else {
                 throw new Error('Empty predictions');
             }
-            
+
         } else {
             throw new Error('No predictions');
         }
-        
+
     } catch (error) {
         status.innerHTML = `
             <div class="flex items-center">
@@ -272,7 +272,7 @@ async function checkPredictions(projectId) {
                 <span class="text-gray-600">No predictions available</span>
             </div>
         `;
-        
+
         actions.innerHTML = `
             <button onclick="showGenerateModal()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
                 Generate Predictions
@@ -285,7 +285,7 @@ async function checkPredictions(projectId) {
 function displayPredictionFiles(data) {
     const results = document.getElementById('predictionResults');
     const files = data.file || {};
-    
+
     let filesHtml = '<div class="grid md:grid-cols-2 gap-4">';
     Object.entries(files).forEach(([filename, fileInfo]) => {
         filesHtml += `
@@ -301,7 +301,7 @@ function displayPredictionFiles(data) {
         `;
     });
     filesHtml += '</div>';
-    
+
     results.innerHTML = filesHtml;
     document.getElementById('resultsSection').classList.remove('hidden');
 }
@@ -316,21 +316,21 @@ function formatFileSize(bytes) {
 
 async function loadPredictions() {
     if (!currentProject) return;
-    
+
     try {
         const config = API_CONFIG[currentEnvironment];
         const response = await axios.get(`${config.fair}/workspace/download/prediction/TM/${currentProject.projectId}/labels_points.geojson/`);
-        
+
         predictionData = response.data;
         addPredictionsToMap(predictionData);
         addChoroplethLayer(predictionData);
-        
+
         document.getElementById('showPredictionsToggle').checked = false;
         if (map.getLayer('prediction-points')) {
             map.setLayoutProperty('prediction-points', 'visibility', 'none');
         }
         document.getElementById('downloadStats').classList.remove('hidden');
-        
+
         const status = document.getElementById('predictionStatus');
         status.innerHTML = `
             <div class="flex items-center">
@@ -338,7 +338,7 @@ async function loadPredictions() {
                 <span class="text-gray-600">Predictions loaded</span>
             </div>
         `;
-        
+
     } catch (error) {
         const status = document.getElementById('predictionStatus');
         status.innerHTML = `
@@ -356,12 +356,12 @@ function addPredictionsToMap(geojsonData) {
         map.getSource('prediction-points').setData(geojsonData);
         return;
     }
-    
+
     map.addSource('prediction-points', {
         type: 'geojson',
         data: geojsonData
     });
-    
+
     map.addLayer({
         id: 'prediction-points',
         type: 'circle',
@@ -378,11 +378,11 @@ function addPredictionsToMap(geojsonData) {
 
 function addChoroplethLayer(predictionData) {
     if (!currentProject?.tasks) return;
-    
+
     const taskCounts = {};
     let totalPredictions = 0;
     let maxCount = 0;
-    
+
     predictionData.features.forEach((prediction) => {
         currentProject.tasks.features.forEach((task) => {
             if (turf.booleanPointInPolygon(prediction.geometry, task.geometry)) {
@@ -395,7 +395,7 @@ function addChoroplethLayer(predictionData) {
             }
         });
     });
-    
+
     const tasksWithCounts = {
         ...currentProject.tasks,
         features: currentProject.tasks.features.map((task) => ({
@@ -406,7 +406,7 @@ function addChoroplethLayer(predictionData) {
             },
         })),
     };
-    
+
     taskStats = {
         totalPredictions,
         maxCount,
@@ -414,10 +414,10 @@ function addChoroplethLayer(predictionData) {
         totalTasks: currentProject.tasks.features.length,
         taskCounts
     };
-    
+
     if (map.getSource('project-tasks')) {
         map.getSource('project-tasks').setData(tasksWithCounts);
-        
+
         const colorStops = generateColorStops(maxCount);
         map.setPaintProperty('project-tasks-fill', 'fill-color', [
             'interpolate',
@@ -426,34 +426,34 @@ function addChoroplethLayer(predictionData) {
             ...colorStops
         ]);
     }
-    
+
     displayPredictionStats(taskStats);
     createLegend(maxCount);
 }
 
 function generateColorStops(maxCount) {
     if (maxCount === 0) return [0, '#fef2f2'];
-    
+
     const colors = ['#fef2f2', '#fee2e2', '#fecaca', '#fca5a5', '#f87171', '#ef4444', '#dc2626', '#b91c1c'];
     const stops = [];
-    
+
     for (let i = 0; i <= maxCount; i++) {
         const ratio = i / maxCount;
         const colorIndex = Math.min(Math.floor(ratio * (colors.length - 1)), colors.length - 1);
         stops.push(i, colors[colorIndex]);
     }
-    
+
     return stops;
 }
 
 function displayPredictionStats(stats) {
     const avgBuildings = stats.tasksWithPredictions > 0 ? Math.round(stats.totalPredictions / stats.tasksWithPredictions) : 0;
-    
+
     document.getElementById('predictionStats').innerHTML = `
         <div class="bg-red-50 rounded-lg p-4 border border-red-100">
             <div class="grid grid-cols-2 gap-4 text-sm">
                 <div class="flex justify-between">
-                    <span class="text-red-700">Total Buildings:</span>
+                    <span class="text-red-700">Approx Buildings:</span>
                     <span class="font-semibold text-red-900">${stats.totalPredictions.toLocaleString()}</span>
                 </div>
                 <div class="flex justify-between">
@@ -471,31 +471,31 @@ function displayPredictionStats(stats) {
             </div>
         </div>
     `;
-    
+
     document.getElementById('predictionStatsPlaceholder').style.display = 'none';
-    
+
     document.getElementById('predictionStats').classList.remove('hidden');
 }
 
 function createLegend(maxCount) {
     const legend = document.getElementById('mapLegend');
     const content = document.getElementById('legendContent');
-    
+
     if (maxCount === 0) {
         legend.classList.add('hidden');
         return;
     }
-    
+
     const steps = Math.min(5, maxCount);
     const stepSize = Math.ceil(maxCount / steps);
     const colors = ['#fef2f2', '#fee2e2', '#fca5a5', '#f87171', '#dc2626'];
-    
+
     let legendHtml = '';
     for (let i = 0; i < steps; i++) {
         const value = i * stepSize;
         const nextValue = Math.min((i + 1) * stepSize, maxCount);
         const color = colors[Math.min(i, colors.length - 1)];
-        
+
         legendHtml += `
             <div class="flex items-center text-xs">
                 <div class="w-4 h-3 rounded mr-2 border border-red-200" style="background-color: ${color}"></div>
@@ -503,7 +503,7 @@ function createLegend(maxCount) {
             </div>
         `;
     }
-    
+
     content.innerHTML = legendHtml;
     legend.classList.remove('hidden');
 }
@@ -511,7 +511,7 @@ function createLegend(maxCount) {
 function togglePredictions(e) {
     const visible = e.target.checked;
     const layers = ['prediction-points'];
-    
+
     layers.forEach(layer => {
         if (map.getLayer(layer)) {
             map.setLayoutProperty(layer, 'visibility', visible ? 'visible' : 'none');
@@ -521,7 +521,7 @@ function togglePredictions(e) {
 
 function downloadTaskStats() {
     if (!taskStats || !currentProject) return;
-    
+
     const tasksWithStats = {
         type: "FeatureCollection",
         features: currentProject.tasks.features.map((task) => ({
@@ -532,16 +532,16 @@ function downloadTaskStats() {
             },
         })),
     };
-    
+
     const jsonContent = JSON.stringify(tasksWithStats, null, 2);
     const blob = new Blob([jsonContent], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    
+
     const link = document.createElement('a');
     link.href = url;
     link.download = `tm_project_${currentProject.projectId}_tasks_with_stats.geojson`;
     link.click();
-    
+
     URL.revokeObjectURL(url);
 }
 
@@ -557,14 +557,14 @@ function closeGenerateModal() {
 
 async function generatePredictions() {
     if (!currentProject) return;
-    
+
     setGenerateLoadingState(true);
-    
+
     try {
         const imagery = document.getElementById('imagerySelect').value;
         const zoom = parseInt(document.getElementById('zoomSelect').value);
         const tileUrl = getImageryTileUrl(imagery);
-        
+
         const config = API_CONFIG[currentEnvironment];
         const payload = {
             geom: currentProject.areaOfInterest,
@@ -575,9 +575,9 @@ async function generatePredictions() {
             description: `TM Project ${currentProject.projectId} - ${imagery} imagery`,
             folder: `TM/${currentProject.projectId}`
         };
-        
+
         const response = await axios.post(`${config.fair}/workspace/prediction/`, payload);
-        
+
         if (response.status === 200 || response.status === 201) {
             closeGenerateModal();
             const status = document.getElementById('predictionStatus');
@@ -589,7 +589,7 @@ async function generatePredictions() {
             `;
             setTimeout(() => checkPredictions(currentProject.projectId), 5000);
         }
-        
+
     } catch (error) {
         const status = document.getElementById('predictionStatus');
         status.innerHTML = `
@@ -605,10 +605,10 @@ async function generatePredictions() {
 
 function downloadFile(filename) {
     if (!currentProject) return;
-    
+
     const config = API_CONFIG[currentEnvironment];
     const url = `${config.fair}/workspace/prediction/TM/${currentProject.projectId}/${filename}`;
-    
+
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
@@ -619,7 +619,7 @@ function setLoadingState(loading) {
     const btn = document.getElementById('loadProjectBtn');
     const text = document.getElementById('loadBtnText');
     const spinner = document.getElementById('loadBtnSpinner');
-    
+
     btn.disabled = loading;
     text.style.display = loading ? 'none' : 'block';
     spinner.style.display = loading ? 'block' : 'none';
@@ -629,7 +629,7 @@ function setGenerateLoadingState(loading) {
     const btn = document.getElementById('confirmGenerate');
     const text = document.getElementById('generateBtnText');
     const spinner = document.getElementById('generateBtnSpinner');
-    
+
     btn.disabled = loading;
     text.style.display = loading ? 'none' : 'block';
     spinner.style.display = loading ? 'block' : 'none';
