@@ -388,12 +388,17 @@ async function loadProject() {
 
 function displayProjectInfo(project) {
     const totalTasks = project.tasks?.features?.length || 0;
+    const projectUrl = `https://tasks.hotosm.org/projects/${project.projectId}`;
     const info = document.getElementById('projectInfo');
     info.innerHTML = `
         <div class="space-y-3">
             <div>
                 <h4 class="font-semibold text-gray-700">Project Name</h4>
                 <p class="text-gray-600">${project.projectInfo?.name || 'N/A'}</p>
+            </div>
+            <div>
+                <h4 class="font-semibold text-gray-700">Project ID</h4>
+                <a href="${projectUrl}" target="_blank" class="text-red-600 hover:text-red-700 underline font-medium">${project.projectId}</a>
             </div>
             <div>
                 <h4 class="font-semibold text-gray-700">Status</h4>
@@ -478,6 +483,11 @@ function addProjectToMap(project) {
     map.fitBounds(bbox, { padding: 50 });
 }
 
+function getOfflinePredictionsUrl() {
+    const baseUrl = currentEnvironment === 'dev' ? 'https://fair-dev.hotosm.org' : 'https://fair.hotosm.org';
+    return `${baseUrl}/profile/offline-predictions`;
+}
+
 async function checkPredictions(projectId) {
     const status = document.getElementById('predictionStatus');
     const actions = document.getElementById('predictionActions');
@@ -499,9 +509,14 @@ async function checkPredictions(projectId) {
 
             if (hasFiles || hasDirs) {
                 status.innerHTML = `
-                    <div class="flex items-center">
-                        <span class="status-dot status-available"></span>
-                        <span class="text-gray-600">Loading predictions...</span>
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <span class="status-dot status-available"></span>
+                            <span class="text-gray-600">Loading predictions...</span>
+                        </div>
+                        <a href="${getOfflinePredictionsUrl()}" target="_blank" class="text-sm text-red-600 hover:text-red-700 underline">
+                            My Predictions
+                        </a>
                     </div>
                 `;
 
@@ -517,9 +532,14 @@ async function checkPredictions(projectId) {
 
     } catch (error) {
         status.innerHTML = `
-            <div class="flex items-center">
-                <span class="status-dot status-unavailable"></span>
-                <span class="text-gray-600">No predictions available</span>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <span class="status-dot status-unavailable"></span>
+                    <span class="text-gray-600">No predictions available</span>
+                </div>
+                <a href="${getOfflinePredictionsUrl()}" target="_blank" class="text-sm text-red-600 hover:text-red-700 underline">
+                    My Predictions
+                </a>
             </div>
         `;
 
@@ -583,9 +603,14 @@ async function loadPredictions() {
 
         const status = document.getElementById('predictionStatus');
         status.innerHTML = `
-            <div class="flex items-center">
-                <span class="status-dot status-available"></span>
-                <span class="text-gray-600">Predictions loaded</span>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <span class="status-dot status-available"></span>
+                    <span class="text-gray-600">Predictions loaded</span>
+                </div>
+                <a href="${getOfflinePredictionsUrl()}" target="_blank" class="text-sm text-red-600 hover:text-red-700 underline">
+                    My Predictions
+                </a>
             </div>
         `;
 
@@ -702,19 +727,19 @@ function displayPredictionStats(stats) {
     document.getElementById('predictionStats').innerHTML = `
         <div class="bg-red-50 rounded-lg p-4 border border-red-100">
             <div class="grid grid-cols-2 gap-4 text-sm">
-                <div class="flex justify-between">
+                <div class="flex justify-between" title="Total predicted buildings across all tasks">
                     <span class="text-red-700">Approx Buildings:</span>
                     <span class="font-semibold text-red-900">${stats.totalPredictions.toLocaleString()}</span>
                 </div>
-                <div class="flex justify-between">
+                <div class="flex justify-between" title="Tasks containing at least one predicted building">
                     <span class="text-red-700">Active Tasks:</span>
                     <span class="font-semibold text-red-900">${stats.tasksWithPredictions} / ${stats.totalTasks}</span>
                 </div>
-                <div class="flex justify-between">
+                <div class="flex justify-between" title="Highest number of buildings found in a single task">
                     <span class="text-red-700">Peak Density:</span>
                     <span class="font-semibold text-red-900">${stats.maxCount}</span>
                 </div>
-                <div class="flex justify-between">
+                <div class="flex justify-between" title="Average buildings per active task">
                     <span class="text-red-700">Average:</span>
                     <span class="font-semibold text-red-900">${avgBuildings}</span>
                 </div>
