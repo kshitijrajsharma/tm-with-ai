@@ -3,26 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HOT Tasking Manager AI Predictions</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>TM-fAIr | HOT Tasking Manager AI Analysis</title>
     <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
     <link
       href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css"
       rel="stylesheet"
     />
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
     <style>
-      .maplibregl-popup-content {
-        padding: 8px 12px;
-        border-radius: 8px;
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+      body {
+        font-family: "Inter", sans-serif;
       }
-      .spinner {
-        border: 2px solid #f3f3f3;
-        border-top: 2px solid #3498db;
+      .glass-effect {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      .gradient-bg {
+        background: linear-gradient(135deg, #e8302a 0%, #b91c1c 100%);
+      }
+      .card-hover {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .card-hover:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+          0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #e8302a, #b91c1c);
+        transition: all 0.3s ease;
+      }
+      .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 15px -3px rgba(232, 48, 42, 0.3);
+      }
+      .loading-spinner {
+        border: 3px solid #f3f4f6;
+        border-top: 3px solid #e8302a;
         border-radius: 50%;
-        width: 20px;
-        height: 20px;
+        width: 24px;
+        height: 24px;
         animation: spin 1s linear infinite;
       }
       @keyframes spin {
@@ -33,351 +61,255 @@
           transform: rotate(360deg);
         }
       }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 8px;
+      }
+      .status-available {
+        background-color: #10b981;
+      }
+      .status-unavailable {
+        background-color: #ef4444;
+      }
+      .status-loading {
+        background-color: #f59e0b;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
     </style>
   </head>
-  <body class="bg-gray-100 h-screen overflow-hidden">
+  <body class="bg-gray-50 min-h-screen">
+    <header class="bg-white text-red-700 shadow-lg border-b border-red-100">
+      <div class="container mx-auto px-6 py-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <i class="fas fa-brain text-2xl text-red-600"></i>
+            <h1 class="text-2xl font-bold">TM-fAIr</h1>
+          </div>
+          <div class="flex items-center space-x-4">
+            <select
+              id="environmentSelect"
+              class="bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            >
+              <option value="dev">Development</option>
+              <option value="prod">Production</option>
+            </select>
+            <i class="fas fa-cog text-lg text-red-500"></i>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container mx-auto px-6 py-8">
+      <section class="mb-8">
+        <div class="glass-effect rounded-2xl p-8 card-hover">
+          <div class="text-center mb-6">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">
+              AI-Powered Task Analysis
+            </h2>
+            <p class="text-gray-600">
+              Discover which mapping tasks have building predictions to
+              prioritize your work
+            </p>
+          </div>
+
+          <div class="max-w-md mx-auto">
+            <div class="relative">
+              <input
+                type="number"
+                id="projectIdInput"
+                placeholder="Enter Tasking Manager Project ID"
+                class="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-red-400 focus:outline-none transition-colors pl-12"
+              />
+              <i
+                class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"
+              ></i>
+            </div>
+            <button
+              id="loadProjectBtn"
+              class="w-full mt-4 px-6 py-4 btn-primary text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+            >
+              <span id="loadBtnText">Analyze Project</span>
+              <div
+                id="loadBtnSpinner"
+                class="loading-spinner mx-auto hidden"
+              ></div>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="projectSection" class="hidden">
+        <div class="grid lg:grid-cols-2 gap-6 mb-6">
+          <div class="glass-effect rounded-xl p-4 card-hover">
+            <h3
+              class="text-lg font-semibold text-gray-800 mb-3 flex items-center"
+            >
+              <i class="fas fa-project-diagram mr-2 text-red-500"></i>
+              Project Details
+            </h3>
+            <div id="projectInfo" class="space-y-2 text-sm"></div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="glass-effect rounded-xl p-4 card-hover">
+              <h3
+                class="text-lg font-semibold text-gray-800 mb-3 flex items-center"
+              >
+                <i class="fas fa-brain mr-2 text-red-600"></i>
+                AI Status
+              </h3>
+              <div id="predictionStatus" class="space-y-2 text-sm">
+                <div class="flex items-center">
+                  <span class="status-dot status-loading"></span>
+                  <span class="text-gray-600">Checking predictions...</span>
+                </div>
+              </div>
+              <div id="predictionActions" class="mt-3 hidden"></div>
+            </div>
+
+            <div class="glass-effect rounded-xl p-4 card-hover">
+              <h3
+                class="text-lg font-semibold text-gray-800 mb-3 flex items-center"
+              >
+                <i class="fas fa-chart-line mr-2 text-red-500"></i>
+                Building Analysis
+              </h3>
+              <div id="predictionStats" class="hidden text-sm"></div>
+              <div
+                id="predictionStatsPlaceholder"
+                class="text-sm text-gray-500"
+              >
+                Load predictions to see analysis
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-effect rounded-2xl p-6 card-hover">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-bold text-gray-800 flex items-center">
+              <i class="fas fa-map mr-3 text-red-500"></i>
+              Project Map
+            </h3>
+            <div class="flex items-center space-x-4">
+              <label class="flex items-center">
+                <input
+                  type="checkbox"
+                  id="showPredictionsToggle"
+                  class="mr-2"
+                />
+                <span class="text-sm text-gray-600">Show Building Points</span>
+              </label>
+              <button
+                id="downloadStats"
+                class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors hidden"
+              >
+                <i class="fas fa-download mr-1"></i>Download
+              </button>
+            </div>
+          </div>
+          <div class="relative">
+            <div
+              id="map"
+              class="w-full h-[500px] rounded-xl overflow-hidden shadow-inner"
+            ></div>
+            <div
+              id="mapLegend"
+              class="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-lg p-3 shadow-lg hidden"
+            >
+              <h4 class="text-sm font-semibold text-gray-800 mb-2">
+                Building Density
+              </h4>
+              <div id="legendContent" class="space-y-1"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="resultsSection" class="mt-8 hidden">
+        <div class="glass-effect rounded-2xl p-8 card-hover">
+          <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+            <i class="fas fa-chart-bar mr-3 text-amber-600"></i>
+            Prediction Results
+          </h3>
+          <div id="predictionResults"></div>
+        </div>
+      </section>
+    </main>
+
     <div
-      id="authModal"
-      class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center"
+      id="generateModal"
+      class="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4"
     >
-      <div class="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
-        <h2 class="text-xl font-bold mb-4">Authentication Required</h2>
-        <p class="text-gray-600 mb-4">
-          Please enter your fAIr access token to generate AI predictions.
-        </p>
-        <input
-          type="password"
-          id="tokenInput"
-          placeholder="Access Token"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-        />
-        <div class="flex justify-end space-x-2">
+      <div class="glass-effect rounded-2xl p-8 max-w-md w-full mx-4">
+        <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+          Generate AI Predictions
+        </h3>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Imagery Source</label
+            >
+            <select
+              id="imagerySelect"
+              class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="Bing">Bing Satellite</option>
+              <option value="Mapbox">Mapbox Satellite</option>
+              <option value="EsriWorldImagery">Esri World Imagery</option>
+              <option value="Maxar-Standard">Maxar Standard</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2"
+              >Zoom Level</label
+            >
+            <select
+              id="zoomSelect"
+              class="w-full px-4 py-3 border border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="18">18</option>
+              <option value="19">19</option>
+              <option value="20">20</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="flex space-x-3 mt-8">
           <button
-            onclick="closeAuthModal()"
-            class="px-4 py-2 text-gray-600 hover:text-gray-800"
+            id="cancelGenerate"
+            class="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
-            onclick="authenticateUser()"
-            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            id="confirmGenerate"
+            class="flex-1 px-4 py-3 btn-primary text-white rounded-lg"
           >
-            <span id="authButtonText">Authenticate</span>
+            <span id="generateBtnText">Generate</span>
             <div
-              id="authSpinner"
-              class="spinner hidden inline-block ml-2"
+              id="generateBtnSpinner"
+              class="loading-spinner mx-auto hidden"
             ></div>
           </button>
         </div>
       </div>
     </div>
 
-    <div
-      id="predictionModal"
-      class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center"
-    >
-      <div
-        class="bg-white rounded-lg p-6 w-[500px] max-w-[90vw] max-h-[80vh] overflow-y-auto"
-      >
-        <h2 class="text-xl font-bold mb-4">Generate AI Predictions</h2>
-        <form id="predictionForm" class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Description</label
-            >
-            <input
-              type="text"
-              id="predictionDescription"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Folder</label
-            >
-            <input
-              type="text"
-              id="predictionFolder"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Model</label
-            >
-            <select
-              id="modelSelect"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            >
-              <option
-                value="https://api-prod.fair.hotosm.org/api/v1/workspace/download/ramp/baseline.tflite"
-                selected
-              >
-                Ramp
-              </option>
-              <option
-                value="https://api-prod.fair.hotosm.org/api/v1/workspace/download/yolo/yolov8s_v2-seg.onnx"
-              >
-                YOLOv8
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Confidence (%)</label
-            >
-            <input
-              type="number"
-              id="confidence"
-              min="0"
-              max="100"
-              step="1"
-              value="25"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Tolerance</label
-            >
-            <input
-              type="number"
-              id="tolerance"
-              min="0"
-              max="1"
-              step="0.1"
-              value="0.3"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Area Threshold</label
-            >
-            <input
-              type="number"
-              id="areaThreshold"
-              min="0"
-              step="1"
-              value="1"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Orthogonalize</label
-            >
-            <select
-              id="orthogonalize"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            >
-              <option value="false" selected>No</option>
-              <option value="true">Yes</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Max Angle Change (°)</label
-            >
-            <input
-              type="number"
-              id="maxAngleChange"
-              min="0"
-              max="45"
-              value="15"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Skew Tolerance (°)</label
-            >
-            <input
-              type="number"
-              id="skewTolerance"
-              min="0"
-              max="45"
-              value="15"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Zoom Level</label
-            >
-            <input
-              type="number"
-              id="zoomLevel"
-              min="15"
-              max="20"
-              value="19"
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          <div class="col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-1"
-              >Source Imagery</label
-            >
-            <input
-              type="text"
-              id="sourceImagery"
-              placeholder="Will be auto-populated from project details"
-              readonly
-              class="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50"
-            />
-          </div>
-          <div class="col-span-2 flex justify-end space-x-2 mt-4">
-            <button
-              type="button"
-              onclick="closePredictionModal()"
-              class="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              class="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-            >
-              <span id="submitButtonText">Generate Predictions</span>
-              <div
-                id="submitSpinner"
-                class="spinner hidden inline-block ml-2"
-              ></div>
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <div
-      id="statusModal"
-      class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center"
-    >
-      <div class="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
-        <h2 class="text-xl font-bold mb-4">Prediction Status</h2>
-        <div class="mb-4">
-          <div class="flex items-center">
-            <div class="spinner mr-3"></div>
-            <span id="statusText">Processing prediction...</span>
-          </div>
-          <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-            <div
-              id="progressBar"
-              class="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style="width: 0%"
-            ></div>
-          </div>
-        </div>
-        <div class="flex justify-end">
-          <button
-            onclick="closeStatusModal()"
-            class="px-4 py-2 text-gray-600 hover:text-gray-800"
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="flex h-full">
-      <div class="w-96 bg-white shadow-lg overflow-y-auto">
-        <div id="userInfo" class="p-4 bg-blue-50 border-b hidden">
-          <div class="flex items-center">
-            <img
-              id="userAvatar"
-              src=""
-              alt="User"
-              class="w-8 h-8 rounded-full mr-3"
-            />
-            <div>
-              <div id="userName" class="font-medium text-sm"></div>
-              <div id="userEmail" class="text-xs text-gray-600"></div>
-            </div>
-          </div>
-        </div>
-
-        <div id="projectDetails" class="p-4 hidden">
-          <button
-            onclick="backToProjectsList()"
-            class="mb-4 text-blue-500 hover:text-blue-700 text-sm"
-          >
-            Back to Projects
-          </button>
-          <h2 id="projectName" class="text-xl font-bold mb-2"></h2>
-          <div class="mb-4">
-            <span
-              id="projectStatus"
-              class="px-2 py-1 rounded-full text-xs font-medium"
-            ></span>
-            <span
-              id="projectPriority"
-              class="px-2 py-1 rounded-full text-xs font-medium ml-2"
-            ></span>
-          </div>
-          <p id="projectDescription" class="text-gray-700 mb-4"></p>
-
-          <div class="grid grid-cols-2 gap-4 mb-4">
-            <div class="bg-gray-50 p-3 rounded">
-              <div class="text-xs text-gray-600">Mapped</div>
-              <div id="percentMapped" class="font-semibold"></div>
-            </div>
-            <div class="bg-gray-50 p-3 rounded">
-              <div class="text-xs text-gray-600">Validated</div>
-              <div id="percentValidated" class="font-semibold"></div>
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <div class="text-sm font-medium mb-2">Imagery</div>
-            <div id="imageryDetails" class="bg-gray-50 p-3 rounded">
-              <div class="text-xs text-gray-600">Source</div>
-              <div id="imagerySource" class="font-medium text-sm mb-2"></div>
-              <div class="text-xs text-gray-600">License</div>
-              <div id="imageryLicense" class="text-sm"></div>
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <div class="text-sm font-medium mb-2">Tasks Status</div>
-            <div id="taskStats" class="space-y-1"></div>
-          </div>
-
-          <div class="space-y-2">
-            <button
-              onclick="checkExistingPredictions()"
-              class="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-            >
-              Check Existing Predictions
-            </button>
-            <button
-              onclick="showPredictionModal()"
-              class="w-full px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
-            >
-              Generate AI Predictions
-            </button>
-          </div>
-
-          <div id="predictionResults" class="mt-4 hidden">
-            <h3 class="font-medium mb-2">Prediction Results</h3>
-            <div id="predictionFiles" class="space-y-1"></div>
-            <div id="predictionStats" class="mt-2 text-sm text-gray-600"></div>
-          </div>
-        </div>
-
-        <div id="projectsList" class="p-4">
-          <h2 class="text-xl font-bold mb-4">HOT Tasking Manager Projects</h2>
-          <div id="loadingProjects" class="text-center py-8">
-            <div class="spinner mx-auto mb-2"></div>
-            <p class="text-gray-600">Loading projects...</p>
-          </div>
-          <div id="projectsContainer" class="space-y-2 hidden"></div>
-        </div>
-      </div>
-
-      <div class="flex-1 relative">
-        <div id="map" class="w-full h-full"></div>
-      </div>
-    </div>
     <script src="js/app.js"></script>
   </body>
 </html>
