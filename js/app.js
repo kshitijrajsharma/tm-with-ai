@@ -104,36 +104,48 @@ function clearPreviousProjectData() {
     predictionData = null;
     taskStats = null;
 
-    document.getElementById('projectInfo').innerHTML = '';
-    document.getElementById('predictionStatus').innerHTML = '';
-    document.getElementById('predictionResults').innerHTML = '';
-    document.getElementById('predictionStats').innerHTML = '';
-    document.getElementById('predictionStatsPlaceholder').style.display = 'block';
+    const elementsToReset = [
+        { id: 'projectInfo', action: 'clear' },
+        { id: 'predictionStatus', action: 'clear' },
+        { id: 'predictionResults', action: 'clear' },
+        { id: 'predictionStats', action: 'clear' },
+        { id: 'predictionStatsPlaceholder', action: 'show' },
+        { id: 'showPredictionsToggle', action: 'uncheck' }
+    ];
 
-    document.getElementById('showPredictionsToggle').checked = false;
+    const elementsToHide = [
+        'projectSection', 'resultsSection', 'predictionStats',
+        'mapLegend', 'downloadStats', 'predictionActions'
+    ];
 
-    document.getElementById('projectSection').classList.add('hidden');
-    document.getElementById('resultsSection').classList.add('hidden');
-    document.getElementById('predictionStats').classList.add('hidden');
-    document.getElementById('mapLegend').classList.add('hidden');
-    document.getElementById('downloadStats').classList.add('hidden');
-    document.getElementById('predictionActions').classList.add('hidden');
+    const mapLayers = [
+        'predictions-fill', 'predictions-line', 'prediction-points',
+        'project-boundary-fill', 'project-boundary-line',
+        'project-tasks-fill', 'project-tasks-line'
+    ];
+
+    const mapSources = [
+        'predictions', 'prediction-points', 'project-boundary', 'project-tasks'
+    ];
+
+    elementsToReset.forEach(({ id, action }) => {
+        const el = document.getElementById(id);
+        if (action === 'clear') el.innerHTML = '';
+        else if (action === 'show') el.style.display = 'block';
+        else if (action === 'uncheck') el.checked = false;
+    });
+
+    elementsToHide.forEach(id =>
+        document.getElementById(id).classList.add('hidden')
+    );
 
     if (map) {
-        if (map.getLayer('predictions-fill')) map.removeLayer('predictions-fill');
-        if (map.getLayer('predictions-line')) map.removeLayer('predictions-line');
-        if (map.getSource('predictions')) map.removeSource('predictions');
-
-        if (map.getLayer('prediction-points')) map.removeLayer('prediction-points');
-        if (map.getSource('prediction-points')) map.removeSource('prediction-points');
-
-        if (map.getLayer('project-boundary-fill')) map.removeLayer('project-boundary-fill');
-        if (map.getLayer('project-boundary-line')) map.removeLayer('project-boundary-line');
-        if (map.getSource('project-boundary')) map.removeSource('project-boundary');
-
-        if (map.getLayer('project-tasks-fill')) map.removeLayer('project-tasks-fill');
-        if (map.getLayer('project-tasks-line')) map.removeLayer('project-tasks-line');
-        if (map.getSource('project-tasks')) map.removeSource('project-tasks');
+        mapLayers.forEach(layer => {
+            if (map.getLayer(layer)) map.removeLayer(layer);
+        });
+        mapSources.forEach(source => {
+            if (map.getSource(source)) map.removeSource(source);
+        });
     }
 }
 
