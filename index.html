@@ -10,6 +10,7 @@
       rel="stylesheet"
     />
     <script src="https://unpkg.com/pmtiles@3.0.7/dist/pmtiles.js"></script>
+    <script src="https://unpkg.com/flatgeobuf@3.26.2/dist/flatgeobuf-geojson.min.js"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -92,22 +93,36 @@
   </head>
   <body class="bg-gray-50 min-h-screen">
     <header class="bg-white text-red-700 shadow-lg border-b border-red-100">
-      <div class="container mx-auto px-6 py-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-3">
-            <i class="fas fa-brain text-2xl text-red-600"></i>
-            <h1 class="text-2xl font-bold">TM-fAIr</h1>
+      <div class="container mx-auto px-4 sm:px-6 py-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <i class="fas fa-brain text-2xl text-red-600"></i>
+              <h1 class="text-xl sm:text-2xl font-bold">TM-fAIr</h1>
+            </div>
+            <div class="flex items-center space-x-2 sm:hidden">
+              <select
+                id="environmentSelectMobile"
+                class="bg-red-50 text-red-700 border border-red-200 rounded-lg px-2 py-1 text-xs focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              >
+                <option value="dev">Dev</option>
+                <option value="prod">Prod</option>
+              </select>
+              <i class="fas fa-cog text-sm text-red-500"></i>
+            </div>
           </div>
-          <div class="flex items-center space-x-4">
-            <div id="authSection"></div>
-            <select
-              id="environmentSelect"
-              class="bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
-            >
-              <option value="dev">Development</option>
-              <option value="prod">Production</option>
-            </select>
-            <i class="fas fa-cog text-lg text-red-500"></i>
+          <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
+            <div id="authSection" class="order-2 sm:order-1"></div>
+            <div class="hidden sm:flex items-center space-x-4 order-1 sm:order-2">
+              <select
+                id="environmentSelect"
+                class="bg-red-50 text-red-700 border border-red-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              >
+                <option value="dev">Development</option>
+                <option value="prod">Production</option>
+              </select>
+              <i class="fas fa-cog text-lg text-red-500"></i>
+            </div>
           </div>
         </div>
       </div>

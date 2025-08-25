@@ -1,7 +1,6 @@
 const API_CONFIG = {
     dev: {
         tm: 'https://tm-prod.skshitizraj.workers.dev/api/v2',
-        // tm: 'https://tasking-manager-dev-api.hotosm.org/api/v2',
         fair: 'https://fair-dev.hotosm.org/api/v1'
     },
     prod: {
@@ -105,6 +104,7 @@ function initializeApp() {
     checkUrlParameters();
 
     document.getElementById('environmentSelect').value = currentEnvironment;
+    document.getElementById('environmentSelectMobile').value = currentEnvironment;
 }
 
 function checkUrlParameters() {
@@ -117,6 +117,7 @@ function checkUrlParameters() {
     if (environment && (environment === 'dev' || environment === 'prod')) {
         currentEnvironment = environment;
         document.getElementById('environmentSelect').value = currentEnvironment;
+        document.getElementById('environmentSelectMobile').value = currentEnvironment;
     }
 
     if (projectId) {
@@ -177,13 +178,22 @@ function updateUserInterface() {
 }
 
 function showAuthPrompt() {
+    const settingsUrl = getFairSettingsUrl();
     const authHtml = `
-        <div class="flex items-center space-x-3">
-            <input type="password" id="tokenInput" placeholder="Enter fAIr Access Token" 
-                   class="px-3 py-1 text-sm border border-red-200 rounded">
-            <button onclick="authenticate()" class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
-                Login
-            </button>
+        <div class="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+            <div class="flex items-center space-x-2">
+                <input type="password" id="tokenInput" placeholder="Enter fAIr Access Token" 
+                       class="px-3 py-1 text-sm border border-red-200 rounded flex-1 sm:flex-none">
+                <button onclick="authenticate()" class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 whitespace-nowrap">
+                    Login
+                </button>
+            </div>
+            <div class="text-xs text-gray-600 text-center sm:text-left">
+                Get token 
+                <a href="${settingsUrl}" target="_blank" class="text-red-600 hover:text-red-700 underline">
+                    here
+                </a>
+            </div>
         </div>
     `;
     document.getElementById('authSection').innerHTML = authHtml;
@@ -217,13 +227,23 @@ function logout() {
 
 function setupEventListeners() {
     document.getElementById('loadProjectBtn').addEventListener('click', loadProject);
-    document.getElementById('environmentSelect').addEventListener('change', (e) => {
+
+    const environmentSelect = document.getElementById('environmentSelect');
+    const environmentSelectMobile = document.getElementById('environmentSelectMobile');
+
+    const handleEnvironmentChange = (e) => {
         currentEnvironment = e.target.value;
+        environmentSelect.value = currentEnvironment;
+        environmentSelectMobile.value = currentEnvironment;
         checkAuthentication();
 
         const projectId = currentProject ? currentProject.projectId : null;
         updateUrl(projectId, currentEnvironment);
-    });
+    };
+
+    environmentSelect.addEventListener('change', handleEnvironmentChange);
+    environmentSelectMobile.addEventListener('change', handleEnvironmentChange);
+
     document.getElementById('projectIdInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') loadProject();
     });
@@ -369,11 +389,12 @@ async function loadProject() {
 
         displayProjectInfo(currentProject);
         addProjectToMap(currentProject);
+
+        document.getElementById('projectSection').classList.remove('hidden');
+
         await checkPredictions(projectId);
 
         updateUrl(projectId, currentEnvironment);
-
-        document.getElementById('projectSection').classList.remove('hidden');
 
     } catch (error) {
         const status = document.getElementById('predictionStatus');
@@ -491,6 +512,11 @@ function getOfflinePredictionsUrl() {
     return `${baseUrl}/profile/offline-predictions`;
 }
 
+function getFairSettingsUrl() {
+    const baseUrl = currentEnvironment === 'dev' ? 'https://fair-dev.hotosm.org' : 'https://fair.hotosm.org';
+    return `${baseUrl}/profile/settings`;
+}
+
 async function checkPredictions(projectId) {
     const status = document.getElementById('predictionStatus');
     const actions = document.getElementById('predictionActions');
@@ -525,6 +551,13 @@ async function checkPredictions(projectId) {
 
                 displayPredictionFiles(response.data);
                 await loadPredictions();
+
+                actions.innerHTML = `
+                    <button onclick="showRegenerateWarning()" class="px-3 py-1 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors">
+                        <i class="fas fa-redo mr-1"></i>Regenerate
+                    </button>
+                `;
+                actions.classList.remove('hidden');
             } else {
                 throw new Error('Empty predictions');
             }
@@ -547,8 +580,8 @@ async function checkPredictions(projectId) {
         `;
 
         actions.innerHTML = `
-            <button onclick="showGenerateModal()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                Request Predictions
+            <button onclick="showGenerateModal()" class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors">
+                <i class="fas fa-brain mr-1"></i>Request
             </button>
         `;
         actions.classList.remove('hidden');
@@ -606,17 +639,26 @@ async function loadPredictions() {
         document.getElementById('downloadStats').classList.remove('hidden');
 
         const status = document.getElementById('predictionStatus');
+        const actions = document.getElementById('predictionActions');
+
         status.innerHTML = `
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <span class="status-dot status-available"></span>
-                    <span class="text-gray-600">Predictions loaded (PMTiles)</span>
+                    <span class="text-gray-600">Predictions loaded</span>
                 </div>
                 <a href="${getOfflinePredictionsUrl()}" target="_blank" class="text-sm text-red-600 hover:text-red-700 underline">
                     My Predictions
                 </a>
             </div>
         `;
+
+        actions.innerHTML = `
+            <button onclick="showRegenerateWarning()" class="px-3 py-1 text-sm bg-amber-600 text-white rounded hover:bg-amber-700 transition-colors">
+                <i class="fas fa-redo mr-1"></i>Regenerate
+            </button>
+        `;
+        actions.classList.remove('hidden');
 
     } catch (error) {
         const status = document.getElementById('predictionStatus');
@@ -675,12 +717,18 @@ async function loadPredictionCounts() {
             console.log('Stats endpoint not available, loading GeoJSON for counting...');
 
             try {
-                response = await axios.get(`${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/labels_points.geojson/`);
-                predictionData = response.data;
-                addChoroplethLayer(predictionData);
-            } catch (geojsonError) {
-                console.warn('Could not load prediction counts:', geojsonError);
-                displayBasicStats();
+                const fgbUrl = `${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/labels_points.fgb`;
+                await addChoroplethLayerFromFGB(fgbUrl);
+            } catch (fgbError) {
+                console.log('FGB format not available, falling back to GeoJSON...');
+                try {
+                    response = await axios.get(`${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/labels_points.geojson/`);
+                    predictionData = response.data;
+                    await addChoroplethLayer(predictionData);
+                } catch (geojsonError) {
+                    console.warn('Could not load prediction counts:', geojsonError);
+                    displayBasicStats();
+                }
             }
         }
     } catch (error) {
@@ -758,25 +806,146 @@ function addPredictionsToMap(geojsonData) {
     });
 }
 
-function addChoroplethLayer(predictionData) {
+async function addChoroplethLayerFromFGB(fgbUrl) {
     if (!currentProject?.tasks) return;
 
     const taskCounts = {};
     let totalPredictions = 0;
     let maxCount = 0;
+    let processedTasks = 0;
 
-    predictionData.features.forEach((prediction) => {
-        currentProject.tasks.features.forEach((task) => {
-            if (turf.booleanPointInPolygon(prediction.geometry, task.geometry)) {
-                const taskId = task.properties.taskId;
-                taskCounts[taskId] = (taskCounts[taskId] || 0) + 1;
-                totalPredictions++;
-                if (taskCounts[taskId] > maxCount) {
-                    maxCount = taskCounts[taskId];
+    try {
+        const response = await fetch(fgbUrl);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        for (const task of currentProject.tasks.features) {
+            processedTasks++;
+            const taskId = task.properties.taskId;
+            const bbox = turf.bbox(task.geometry);
+
+            const rect = {
+                minX: bbox[0],
+                minY: bbox[1],
+                maxX: bbox[2],
+                maxY: bbox[3]
+            };
+
+            try {
+                const iter = flatgeobuf.deserialize(response.body, rect);
+                let taskCount = 0;
+
+                for await (const feature of iter) {
+                    if (turf.booleanPointInPolygon(feature.geometry, task.geometry)) {
+                        taskCount++;
+                    }
                 }
+
+                if (taskCount > 0) {
+                    taskCounts[taskId] = taskCount;
+                    totalPredictions += taskCount;
+                    if (taskCount > maxCount) {
+                        maxCount = taskCount;
+                    }
+                }
+
+            } catch (taskError) {
+                console.warn(`Error processing task ${taskId}:`, taskError);
             }
-        });
-    });
+
+            if (processedTasks % 10 === 0) {
+                updateProgressStatus(`${processedTasks}/${currentProject.tasks.features.length} tasks`);
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
+        }
+
+        const tasksWithCounts = {
+            ...currentProject.tasks,
+            features: currentProject.tasks.features.map((task) => ({
+                ...task,
+                properties: {
+                    ...task.properties,
+                    predictionCount: taskCounts[task.properties.taskId] || 0,
+                },
+            })),
+        };
+
+        taskStats = {
+            totalPredictions,
+            maxCount,
+            tasksWithPredictions: Object.keys(taskCounts).length,
+            totalTasks: currentProject.tasks.features.length,
+            taskCounts
+        };
+
+        if (map.getSource('project-tasks')) {
+            map.getSource('project-tasks').setData(tasksWithCounts);
+
+            const colorStops = generateColorStops(maxCount);
+            map.setPaintProperty('project-tasks-fill', 'fill-color', [
+                'interpolate',
+                ['linear'],
+                ['get', 'predictionCount'],
+                ...colorStops
+            ]);
+        }
+
+        displayPredictionStats(taskStats);
+        createLegend(maxCount);
+
+    } catch (error) {
+        console.error('Error processing FGB file:', error);
+        throw error;
+    }
+}
+
+function updateProgressStatus(progressText) {
+    const status = document.getElementById('predictionStatus');
+    status.innerHTML = `
+        <div class="flex items-center">
+            <span class="status-dot status-loading"></span>
+            <span class="text-gray-600">Processing predictions... ${progressText}</span>
+        </div>
+    `;
+}
+
+async function addChoroplethLayer(predictionData) {
+    if (!currentProject?.tasks) return;
+
+    const taskCounts = {};
+    let totalPredictions = 0;
+    let maxCount = 0;
+    let processedFeatures = 0;
+    const totalFeatures = predictionData.features.length;
+
+    updateProgressStatus(`0/${totalFeatures.toLocaleString()} features`);
+
+    for (let i = 0; i < predictionData.features.length; i++) {
+        const prediction = predictionData.features[i];
+        processedFeatures++;
+
+        for (const task of currentProject.tasks.features) {
+            try {
+                if (turf.booleanPointInPolygon(prediction.geometry, task.geometry)) {
+                    const taskId = task.properties.taskId;
+                    taskCounts[taskId] = (taskCounts[taskId] || 0) + 1;
+                    totalPredictions++;
+                    if (taskCounts[taskId] > maxCount) {
+                        maxCount = taskCounts[taskId];
+                    }
+                    break;
+                }
+            } catch (error) {
+                continue;
+            }
+        }
+
+        if (processedFeatures % 500 === 0) {
+            updateProgressStatus(`${processedFeatures.toLocaleString()}/${totalFeatures.toLocaleString()} features`);
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+    }
 
     const tasksWithCounts = {
         ...currentProject.tasks,
@@ -902,7 +1071,7 @@ function togglePredictions(e) {
 
     const label = document.querySelector('label[for="showPredictionsToggle"] span');
     if (label) {
-        label.textContent = visible ? 'Hide Building Points (PMTiles)' : 'Show Building Points (PMTiles)';
+        label.textContent = visible ? 'Hide Building Points ' : 'Show Building Points ';
     }
 }
 
@@ -930,6 +1099,49 @@ function downloadTaskStats() {
     link.click();
 
     URL.revokeObjectURL(url);
+}
+
+function showRegenerateWarning() {
+    if (!userToken) {
+        alert('Please login first with your fAIr access token');
+        return;
+    }
+
+    const warningModal = document.createElement('div');
+    warningModal.id = 'regenerateWarningModal';
+    warningModal.className = 'fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4';
+
+    warningModal.innerHTML = `
+        <div class="glass-effect rounded-2xl p-6 max-w-md w-full mx-4">
+            <div class="text-center mb-6">
+                <i class="fas fa-exclamation-triangle text-amber-500 text-4xl mb-3"></i>
+                <h3 class="text-xl font-bold text-gray-800 mb-2">Replace Existing Predictions?</h3>
+                <p class="text-gray-600">This will replace your current predictions with new ones. This action cannot be undone.</p>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="closeRegenerateWarning()" class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    Cancel
+                </button>
+                <button onclick="confirmRegenerate()" class="flex-1 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors">
+                    Continue
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(warningModal);
+}
+
+function closeRegenerateWarning() {
+    const modal = document.getElementById('regenerateWarningModal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+function confirmRegenerate() {
+    closeRegenerateWarning();
+    showGenerateModal();
 }
 
 function showGenerateModal() {
@@ -1030,14 +1242,24 @@ async function generatePredictions() {
 
         if (response.status === 200 || response.status === 201) {
             closeGenerateModal();
+
+            const predictionUrl = getOfflinePredictionsUrl();
+            window.open(predictionUrl, '_blank');
+
             const status = document.getElementById('predictionStatus');
             status.innerHTML = `
-                <div class="flex items-center">
-                    <span class="status-dot status-loading"></span>
-                    <span class="text-gray-600">Generation started. Check back in a few minutes.</span>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <span class="status-dot status-available"></span>
+                        <span class="text-gray-600">Generation successful! Check progress in your fAIr profile and come back.</span>
+                    </div>
+                    <a href="${predictionUrl}" target="_blank" class="text-sm text-red-600 hover:text-red-700 underline">
+                        My Predictions
+                    </a>
                 </div>
             `;
-            setTimeout(() => checkPredictions(currentProject.projectId), 10000);
+
+            setTimeout(() => checkPredictions(currentProject.projectId), 30000);
         }
 
     } catch (error) {
