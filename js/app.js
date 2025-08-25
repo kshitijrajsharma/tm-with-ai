@@ -241,6 +241,9 @@ function toggleAdvancedSettings() {
 }
 
 function initializeMap() {
+    let protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
+
     map = new maplibregl.Map({
         container: 'map',
         style: {
@@ -321,7 +324,7 @@ function clearPreviousProjectData() {
     ];
 
     const mapSources = [
-        'predictions', 'prediction-points', 'project-boundary', 'project-tasks'
+        'predictions', 'prediction-points', 'prediction-points-pmtiles', 'project-boundary', 'project-tasks'
     ];
 
     elementsToReset.forEach(({ id, action }) => {
@@ -589,11 +592,12 @@ async function loadPredictions() {
 
     try {
         const config = API_CONFIG[currentEnvironment];
-        const response = await axios.get(`${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/labels_points.geojson/`);
 
-        predictionData = response.data;
-        addPredictionsToMap(predictionData);
-        addChoroplethLayer(predictionData);
+        const pmtilesUrl = `${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/meta.pmtiles`;
+
+        addPredictionsToMapFromPMTiles(pmtilesUrl);
+
+        await loadPredictionCounts();
 
         document.getElementById('showPredictionsToggle').checked = false;
         if (map.getLayer('prediction-points')) {
@@ -606,7 +610,7 @@ async function loadPredictions() {
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <span class="status-dot status-available"></span>
-                    <span class="text-gray-600">Predictions loaded</span>
+                    <span class="text-gray-600">Predictions loaded (PMTiles)</span>
                 </div>
                 <a href="${getOfflinePredictionsUrl()}" target="_blank" class="text-sm text-red-600 hover:text-red-700 underline">
                     My Predictions
@@ -624,6 +628,109 @@ async function loadPredictions() {
         `;
         console.error(error);
     }
+}
+
+function addPredictionsToMapFromPMTiles(pmtilesUrl) {
+    if (map.getLayer('prediction-points')) {
+        map.removeLayer('prediction-points');
+    }
+    if (map.getSource('prediction-points-pmtiles')) {
+        map.removeSource('prediction-points-pmtiles');
+    }
+
+    map.addSource('prediction-points-pmtiles', {
+        type: 'vector',
+        url: `pmtiles://${pmtilesUrl}`
+    });
+
+    map.addLayer({
+        id: 'prediction-points',
+        type: 'circle',
+        source: 'prediction-points-pmtiles',
+        'source-layer': 'labels_points',
+        paint: {
+            'circle-radius': 3,
+            'circle-color': '#0891b2',
+            'circle-stroke-color': 'white',
+            'circle-stroke-width': 1,
+            'circle-opacity': 0.8
+        }
+    });
+}
+
+async function loadPredictionCounts() {
+    if (!currentProject?.tasks) return;
+
+    try {
+        const config = API_CONFIG[currentEnvironment];
+
+        let response;
+        try {
+            response = await axios.get(`${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/stats.json`);
+            if (response.data) {
+                processPredictionStats(response.data);
+                return;
+            }
+        } catch (statsError) {
+            console.log('Stats endpoint not available, loading GeoJSON for counting...');
+
+            try {
+                response = await axios.get(`${config.fair}/workspace/download/prediction/TM/${currentEnvironment}/${currentProject.projectId}/labels_points.geojson/`);
+                predictionData = response.data;
+                addChoroplethLayer(predictionData);
+            } catch (geojsonError) {
+                console.warn('Could not load prediction counts:', geojsonError);
+                displayBasicStats();
+            }
+        }
+    } catch (error) {
+        console.error('Error loading prediction counts:', error);
+        displayBasicStats();
+    }
+}
+
+function processPredictionStats(stats) {
+    taskStats = stats;
+
+    if (currentProject?.tasks && stats.taskCounts) {
+        const tasksWithCounts = {
+            ...currentProject.tasks,
+            features: currentProject.tasks.features.map((task) => ({
+                ...task,
+                properties: {
+                    ...task.properties,
+                    predictionCount: stats.taskCounts[task.properties.taskId] || 0,
+                },
+            })),
+        };
+
+        if (map.getSource('project-tasks')) {
+            map.getSource('project-tasks').setData(tasksWithCounts);
+
+            const colorStops = generateColorStops(stats.maxCount);
+            map.setPaintProperty('project-tasks-fill', 'fill-color', [
+                'interpolate',
+                ['linear'],
+                ['get', 'predictionCount'],
+                ...colorStops
+            ]);
+        }
+
+        displayPredictionStats(stats);
+        createLegend(stats.maxCount);
+    }
+}
+
+function displayBasicStats() {
+    document.getElementById('predictionStats').innerHTML = `
+        <div class="bg-red-50 rounded-lg p-4 border border-red-100">
+            <div class="text-sm text-center text-red-700">
+                Prediction statistics loading...
+            </div>
+        </div>
+    `;
+    document.getElementById('predictionStatsPlaceholder').style.display = 'none';
+    document.getElementById('predictionStats').classList.remove('hidden');
 }
 
 function addPredictionsToMap(geojsonData) {
@@ -792,6 +899,11 @@ function togglePredictions(e) {
             map.setLayoutProperty(layer, 'visibility', visible ? 'visible' : 'none');
         }
     });
+
+    const label = document.querySelector('label[for="showPredictionsToggle"] span');
+    if (label) {
+        label.textContent = visible ? 'Hide Building Points (PMTiles)' : 'Show Building Points (PMTiles)';
+    }
 }
 
 function downloadTaskStats() {
