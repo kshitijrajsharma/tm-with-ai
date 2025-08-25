@@ -1244,25 +1244,37 @@ async function generatePredictions() {
             closeGenerateModal();
 
             const predictionUrl = getOfflinePredictionsUrl();
-            window.open(predictionUrl, '_blank');
-
+            
             const status = document.getElementById('predictionStatus');
             status.innerHTML = `
                 <div class="flex items-center justify-between">
                     <div class="flex items-center">
                         <span class="status-dot status-available"></span>
-                        <span class="text-gray-600">Generation successful! Check progress in your fAIr profile and come back.</span>
+                        <span class="text-gray-600">Generation successful! Opening your fAIr profile in 3 seconds...</span>
                     </div>
                     <a href="${predictionUrl}" target="_blank" class="text-sm text-red-600 hover:text-red-700 underline">
                         My Predictions
                     </a>
                 </div>
             `;
-
+            
+            setTimeout(() => {
+                window.open(predictionUrl, '_blank');
+                status.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <span class="status-dot status-available"></span>
+                            <span class="text-gray-600">Generation successful! Check progress in your fAIr profile and come back.</span>
+                        </div>
+                        <a href="${predictionUrl}" target="_blank" class="text-sm text-red-600 hover:text-red-700 underline">
+                            My Predictions
+                        </a>
+                    </div>
+                `;
+            }, 3000);
+            
             setTimeout(() => checkPredictions(currentProject.projectId), 30000);
-        }
-
-    } catch (error) {
+        }    } catch (error) {
         const status = document.getElementById('predictionStatus');
         status.innerHTML = `
             <div class="flex items-center">
