@@ -37,8 +37,8 @@ function getImageryTileUrl(imagery) {
 }
 
 function getProjectImageryUrl(project) {
-    if (project?.customEditor?.imagery) {
-        return project.customEditor.imagery;
+    if (project?.imagery) {
+        return project.imagery;
     }
     return null;
 }
