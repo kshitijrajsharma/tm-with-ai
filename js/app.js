@@ -815,10 +815,13 @@ async function addChoroplethLayerFromFGB(fgbUrl) {
     let processedTasks = 0;
 
     try {
+        // First, get the response body as ArrayBuffer to reuse it
         const response = await fetch(fgbUrl);
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        
+        const arrayBuffer = await response.arrayBuffer();
 
         for (const task of currentProject.tasks.features) {
             processedTasks++;
@@ -833,7 +836,14 @@ async function addChoroplethLayerFromFGB(fgbUrl) {
             };
 
             try {
-                const iter = flatgeobuf.deserialize(response.body, rect);
+                const stream = new ReadableStream({
+                    start(controller) {
+                        controller.enqueue(new Uint8Array(arrayBuffer));
+                        controller.close();
+                    }
+                });
+                
+                const iter = flatgeobuf.deserialize(stream, rect);
                 let taskCount = 0;
 
                 for await (const feature of iter) {
